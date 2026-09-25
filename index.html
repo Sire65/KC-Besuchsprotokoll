@@ -81,6 +81,33 @@
   .versteckt { display: none !important; }
   .bearbeiten-hinweis { background: #fff1e0; color: var(--orange); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .bearbeiten-hinweis button { border: 0; background: none; color: var(--rot); font: inherit; text-decoration: underline; }
+  /* ---------- Termine (ab 1.2.0) ---------- */
+  nav .zahl { background: var(--rot); color: #fff; border-radius: 10px; font-size: 12px; padding: 1px 7px; margin-left: 3px; font-weight: 700; }
+  .klein { font-size: 14px; color: var(--grau); }
+  .knoepfe { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .knoepfe button { flex: 1 1 auto; border: 1.5px solid var(--rot); background: #fff; color: var(--rot); border-radius: 9px; padding: 9px 10px; font: inherit; font-size: 15px; font-weight: 600; }
+  .knoepfe button.voll { background: var(--rot); color: #fff; }
+  .knoepfe button.grau { border-color: #bbb; color: #555; }
+  .knoepfe button:disabled { opacity: .5; }
+  .eintrag { border-top: 1px solid #eee; padding: 11px 0; }
+  .eintrag:first-child { border-top: 0; padding-top: 0; }
+  .eintrag .wann { font-weight: 700; }
+  .mliste { max-height: 260px; overflow: auto; border: 1px solid #ddd; border-radius: 9px; margin-top: 8px; background: #fff; }
+  .mliste label { display: flex; gap: 10px; align-items: center; margin: 0; padding: 9px 12px; border-top: 1px solid #f0f0f0; color: var(--text); font-size: 16px; }
+  .mliste label:first-child { border-top: 0; }
+  .mliste input { width: 22px; height: 22px; flex: none; accent-color: var(--rot); }
+  .marke.rot { background: #fbe3e3; color: #a51d1d; }
+  .marke.grau { background: #eee; color: #555; }
+  details summary { cursor: pointer; color: var(--rot); font-weight: 600; }
+  .prot { font-size: 14px; border-top: 1px solid #eee; padding: 7px 0; }
+  .prot b { color: var(--text); }
+  .schluessel { font-family: ui-monospace, Menlo, monospace; word-break: break-all; background: #f6f6f6; padding: 10px; border-radius: 8px; font-size: 14px; }
+  .ampel { border-radius: 9px; padding: 10px 12px; font-weight: 600; font-size: 15px; }
+  .ampel.gruen { background: #e5f3e9; color: var(--gruen); }
+  .ampel.orange { background: #fff1e0; color: var(--orange); }
+  .ampel.rot { background: #fbe3e3; color: #a51d1d; }
+  ol.schritte { padding-left: 20px; margin: 8px 0; font-size: 15px; }
+  ol.schritte li { margin-bottom: 6px; }
 </style>
 </head>
 <body>
@@ -101,6 +128,7 @@
 <nav>
   <button id="tabNeu" class="aktiv" onclick="zeige('neu')">Neuer Besuch</button>
   <button id="tabListe" onclick="zeige('liste')">Meine Besuche</button>
+  <button id="tabTermine" onclick="zeige('termine')">Termine<span id="terminZahl" class="zahl versteckt"></span></button>
 </nav>
 
 <main id="ansichtNeu">
@@ -184,11 +212,79 @@
   <p class="version">Version <span id="versionAnzeige"></span> · <a href="#" onclick="updatePruefen(true); return false;">Nach Update suchen</a></p>
 </main>
 
+<main id="ansichtTermine" class="versteckt">
+  <div class="karte" id="wartetKarte">
+    <h2>Wartet auf dich</h2>
+    <div id="wartet"><p class="hinweis">Wird geladen …</p></div>
+  </div>
+
+  <div class="karte">
+    <h2>Termin anbieten</h2>
+    <div class="wahl" id="tArtWahl">
+      <button type="button" data-w="bei_hansi" onclick="tArtSetzen('bei_hansi')">🏠 Bei mir</button>
+      <button type="button" data-w="beim_mitglied" onclick="tArtSetzen('beim_mitglied')">🚗 Ich fahre hin</button>
+      <button type="button" data-w="wahl" onclick="tArtSetzen('wahl')">📍 Mitglied wählt</button>
+    </div>
+    <label for="tDatum">Datum</label>
+    <input id="tDatum" type="date">
+    <div class="reihe">
+      <div><label for="tVon">Von</label><input id="tVon" type="time" step="900" value="15:00"></div>
+      <div><label for="tBis">Bis</label><input id="tBis" type="time" step="900" value="16:30"></div>
+    </div>
+    <label>Plätze (Personen)</label>
+    <div class="wahl" id="tPlatzWahl">
+      <button type="button" data-w="1" onclick="tPlaetzeSetzen(1)">1</button>
+      <button type="button" data-w="2" onclick="tPlaetzeSetzen(2)">2</button>
+      <button type="button" data-w="3" onclick="tPlaetzeSetzen(3)">3</button>
+    </div>
+    <p class="hinweis" id="tArtHinweis"></p>
+    <label for="tNotiz">Notiz (sehen die Mitglieder, freiwillig)</label>
+    <input id="tNotiz" placeholder="z. B. Kassenprogramm">
+    <button id="tAnlegenKnopf" class="knopf haupt" style="margin-top:12px" onclick="terminAnlegen()">+ Termin einstellen</button>
+    <p class="hinweis">Datum und Uhrzeit bleiben danach stehen – so sind mehrere Termine schnell eingestellt.</p>
+  </div>
+
+  <div class="karte">
+    <h2>Meine Termine</h2>
+    <div id="terminListe"></div>
+  </div>
+
+  <div class="karte">
+    <h2>Mitglieder einladen</h2>
+    <input id="mSuche" placeholder="🔍 Name suchen …" oninput="mListeZeigen()">
+    <div id="mListe" class="mliste"></div>
+    <div id="mChips" class="chips"></div>
+    <label for="mNachricht">Persönliche Zeile in der Mail (freiwillig)</label>
+    <textarea id="mNachricht" style="min-height:60px" placeholder="z. B. Ich zeige dir die neue Kasse."></textarea>
+    <div class="knoepfe">
+      <button id="einzelnKnopf" class="voll" onclick="einladen(false)">Jeden einzeln einladen</button>
+      <button id="gemeinsamKnopf" onclick="einladen(true)">Gemeinsam einladen</button>
+    </div>
+    <p class="hinweis">Einzeln: jedes Mitglied bekommt eine eigene Einladung. Gemeinsam: bis zu 3 Personen kommen zusammen zu einem Termin (z. B. ein Ehepaar). Antwortfrist: 3 Tage.</p>
+    <div id="einladenErgebnis"></div>
+  </div>
+
+  <div class="karte">
+    <h2>Einladungen</h2>
+    <div id="einladungListe"></div>
+  </div>
+
+  <div class="karte">
+    <h2>Google-Kalender</h2>
+    <div id="kalender"></div>
+  </div>
+
+  <div class="karte">
+    <details><summary>Protokoll</summary><div id="protokoll" style="margin-top:8px"></div></details>
+  </div>
+  <p class="version"><a href="#" onclick="termineLaden(); return false;">↻ Neu laden</a></p>
+</main>
+
 <div id="fussNeu" class="fuss"><button id="speichernKnopf" class="knopf haupt" onclick="speichern()">Speichern</button></div>
 </div>
 
 <script>
-const APP_VERSION = "1.1.0"; // gleich halten mit sw.js und version.json (siehe CHANGELOG.md)
+const APP_VERSION = "1.2.0"; // gleich halten mit sw.js und version.json (siehe CHANGELOG.md)
 const API = "https://ptblnpiroqftcvlsrhac.supabase.co/functions/v1/kc-besuche";
 const ENTWURF = "kc_besuch_entwurf";
 
@@ -251,6 +347,7 @@ async function laden() {
     sel.innerHTML = '<option value="">– antippen –</option>' + mitglieder.map((m) => `<option value="${m.person_id}">${esc(m.display_name)}</option>`).join("");
     jahreFuellen(); liste();
   } catch (e) { melde(e.message, true); }
+  if (location.hash === "#termine") zeige("termine"); else termineLaden(true);
 }
 
 // ---------- Formular ----------
@@ -559,9 +656,335 @@ function bearbeiten(id) {
 function zeige(a) {
   $("ansichtNeu").classList.toggle("versteckt", a !== "neu");
   $("ansichtListe").classList.toggle("versteckt", a !== "liste");
+  $("ansichtTermine").classList.toggle("versteckt", a !== "termine");
   $("fussNeu").classList.toggle("versteckt", a !== "neu");
   $("tabNeu").classList.toggle("aktiv", a === "neu");
   $("tabListe").classList.toggle("aktiv", a === "liste");
+  $("tabTermine").classList.toggle("aktiv", a === "termine");
+  if (a === "termine") termineLaden();
+}
+
+// ---------- Termine (Feature KC-BES-TERMINE, ab 1.2.0) ----------
+const TERMINE_API = "https://ptblnpiroqftcvlsrhac.supabase.co/functions/v1/kc-termine";
+const SKRIPT_URL = "google/KalenderAbgleich.gs";
+let T = null, tArt = "bei_hansi", tPlaetze = 3, mGewaehlt = [];
+const TZ = "Europe/Berlin";
+const tfTag = new Intl.DateTimeFormat("de-DE", { timeZone: TZ, weekday: "short", day: "2-digit", month: "2-digit" });
+const tfZeit = new Intl.DateTimeFormat("de-DE", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+const tfDatum = new Intl.DateTimeFormat("sv-SE", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" });
+const twann = (b, e) => `${tfTag.format(new Date(b))} ${tfZeit.format(new Date(b))}–${tfZeit.format(new Date(e))}`;
+const ART = { bei_hansi: "🏠 bei mir", beim_mitglied: "🚗 ich fahre hin", wahl: "📍 Mitglied wählt", egal: "📍 Ort egal" };
+const E_STATUS = {
+  offen: ["wartet auf Antwort", "blau"], gewaehlt: ["hat gewählt – bitte freigeben", ""], gegenvorschlag: ["Gegenvorschlag", ""],
+  bestaetigt: ["bestätigt", "gruen"], abgesagt: ["möchte zurzeit nicht", "grau"], abgelaufen: ["keine Antwort (Frist vorbei)", "rot"],
+  zurueckgezogen: ["zurückgezogen", "grau"],
+};
+
+async function tapi(action, daten = {}) {
+  const r = await fetch(TERMINE_API, { method: "POST", headers: { "Content-Type": "application/json", "x-key": KEY }, body: JSON.stringify({ action, ...daten }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(r.status === 401 ? "Kein Zugang – bitte den persönlichen Link neu öffnen." : (j.error || "Fehler " + r.status));
+  return j;
+}
+async function termineLaden(still = false) {
+  try { T = await tapi("t_init"); termineZeigen(); }
+  catch (e) { if (!still) melde(e.message, true); }
+}
+async function tAktion(knopf, fn) {
+  if (knopf) knopf.disabled = true;
+  try { await fn(); await termineLaden(); }
+  catch (e) { melde(e.message, true); }
+  finally { if (knopf) knopf.disabled = false; }
+}
+
+const person = (pid) => (T && T.mitglieder.find((m) => m.person_id === pid)) || null;
+function gruppe(pids) {
+  const ms = pids.map((p) => person(p) || { display_name: p, given_name: p });
+  const nach = [...new Set(ms.map((m) => m.family_name).filter(Boolean))];
+  if (ms.length > 1 && nach.length === 1) return ms.map((m) => m.given_name || m.display_name).join(" und ") + " " + nach[0];
+  return ms.map((m) => m.display_name).join(", ");
+}
+const einl = (id) => T.einladungen.find((e) => e.id === id);
+const slot = (id) => T.slots.find((s) => s.id === id);
+function versandMeldung(v, was) {
+  const ohne = (v || []).filter((x) => !x.mail && !(x.hinweis || "").includes("Test"));
+  if (!ohne.length) return melde(was);
+  melde(`${was} – aber keine Mail an: ${ohne.map((x) => x.name).join(", ")}${ohne[0].hinweis ? " (" + ohne[0].hinweis + ")" : ""}`, true);
+}
+
+function termineZeigen() {
+  if (!T) return;
+  wartetZeigen(); terminListeZeigen(); mListeZeigen(); einladungListeZeigen(); kalenderZeigen(); protokollZeigen();
+  if (!$("tDatum").value) { const d = new Date(Date.now() + 86400000); $("tDatum").value = tfDatum.format(d); }
+  tArtZeigen();
+}
+
+// ----- Wartet auf dich -----
+function wartetZeigen() {
+  const h = [];
+  for (const b of T.buchungen.filter((b) => b.status === "vorgemerkt")) {
+    const s = slot(b.slot_id), e = einl(b.einladung_id); if (!s || !e) continue;
+    h.push(`<div class="eintrag"><b>${esc(gruppe(e.person_ids))}</b> hat gewählt${e.ist_test ? ' <span class="marke grau">Test</span>' : ""}
+      <div class="wann">${twann(s.beginn, s.ende)} · ${ART[b.besuchsart]}</div>
+      <div class="knoepfe"><button class="voll" onclick="buchungEntscheiden(this,'${b.id}','bestaetigen')">✅ Bestätigen</button>
+      <button onclick="buchungEntscheiden(this,'${b.id}','ablehnen')">✖ Ablehnen</button></div></div>`);
+  }
+  for (const e of T.einladungen.filter((e) => e.status === "gegenvorschlag")) {
+    const vs = T.vorschlaege.filter((v) => v.einladung_id === e.id && v.status === "offen");
+    h.push(`<div class="eintrag"><b>${esc(gruppe(e.person_ids))}</b>: kein Termin passt – Vorschläge:${e.ist_test ? ' <span class="marke grau">Test</span>' : ""}
+      ${e.bemerkung ? `<div class="klein">„${esc(e.bemerkung)}“</div>` : ""}
+      ${vs.map((v) => `<div style="margin-top:8px"><span class="wann">${twann(v.beginn, v.ende)}</span> · ${ART[v.besuchsart]}
+        <div class="knoepfe">${v.besuchsart === "egal"
+          ? `<button class="voll" onclick="vorschlagAnnehmen(this,'${e.id}','${v.id}','bei_hansi')">Annehmen – bei mir</button><button class="voll" onclick="vorschlagAnnehmen(this,'${e.id}','${v.id}','beim_mitglied')">Annehmen – ich fahre hin</button>`
+          : `<button class="voll" onclick="vorschlagAnnehmen(this,'${e.id}','${v.id}')">Annehmen</button>`}</div></div>`).join("")}
+      <div class="knoepfe"><button onclick="neueTermine(this,'${e.id}')">Passt nicht – neue Termine anbieten</button></div></div>`);
+  }
+  for (const e of T.einladungen.filter((e) => e.status === "abgelaufen")) {
+    h.push(`<div class="eintrag"><b>${esc(gruppe(e.person_ids))}</b> hat nicht geantwortet (Frist vorbei)${e.ist_test ? ' <span class="marke grau">Test</span>' : ""}
+      <div class="knoepfe"><button class="voll" onclick="erneutEinladen(this,'${e.id}')">Erneut einladen</button><button class="grau" onclick="zurueckziehen(this,'${e.id}')">Erledigt</button></div></div>`);
+  }
+  $("wartet").innerHTML = h.join("") || '<p class="hinweis" style="margin:0">Nichts offen. 👍</p>';
+  const n = h.length;
+  $("terminZahl").textContent = n; $("terminZahl").classList.toggle("versteckt", !n);
+}
+function buchungEntscheiden(k, id, entscheidung) {
+  const b = T.buchungen.find((x) => x.id === id), e = einl(b.einladung_id), s = slot(b.slot_id);
+  let nachricht = "";
+  if (entscheidung === "bestaetigen") {
+    if (!confirm(`${gruppe(e.person_ids)}\n${twann(s.beginn, s.ende)}\n\nBestätigen? Die Bestätigungsmail mit Kalenderdatei geht sofort raus.`)) return;
+  } else {
+    nachricht = prompt("Ablehnen – der Termin wird wieder frei und das Mitglied bekommt einen neuen Link zum Wählen.\n\nKurze Begründung für die Mail (freiwillig):", "");
+    if (nachricht === null) return;
+  }
+  tAktion(k, async () => {
+    const r = await tapi("t_buchung_entscheiden", { buchung_id: id, entscheidung, nachricht });
+    versandMeldung(r.versand, entscheidung === "bestaetigen" ? "Bestätigt – Mail ist raus" : "Abgelehnt – neuer Link ist raus");
+  });
+}
+function vorschlagAnnehmen(k, eid, vid, besuchsart) {
+  const v = T.vorschlaege.find((x) => x.id === vid);
+  if (!confirm(`${twann(v.beginn, v.ende)} annehmen?\nDas Mitglied bekommt sofort die Bestätigungsmail.`)) return;
+  tAktion(k, async () => { const r = await tapi("t_vorschlag_entscheiden", { einladung_id: eid, aktion: "annehmen", vorschlag_id: vid, besuchsart }); versandMeldung(r.versand, "Termin bestätigt – Mail ist raus"); });
+}
+function neueTermine(k, eid) {
+  const frei = T.slots.filter((s) => s.status === "offen" && !s.ist_test && new Date(s.beginn) > new Date()).length;
+  const n = prompt(`Neue Termine anbieten: das Mitglied bekommt einen neuen Link mit den freien Terminen (zurzeit ${frei}) und wieder 3 Tage Zeit.${frei ? "" : "\n\nTipp: erst unten neue Termine einstellen!"}\n\nKurze Nachricht (freiwillig):`, "");
+  if (n === null) return;
+  tAktion(k, async () => { const r = await tapi("t_vorschlag_entscheiden", { einladung_id: eid, aktion: "neue_termine", nachricht: n }); versandMeldung(r.versand, "Neue Terminvorschläge sind raus"); });
+}
+function erneutEinladen(k, eid) {
+  const n = prompt("Erneut einladen – neuer Link, wieder 3 Tage Zeit.\n\nKurze Nachricht (freiwillig):", "");
+  if (n === null) return;
+  tAktion(k, async () => { const r = await tapi("t_erneut_einladen", { einladung_id: eid, nachricht: n }); versandMeldung(r.versand, "Einladung ist erneut raus"); });
+}
+function zurueckziehen(k, eid) {
+  const e = einl(eid);
+  const hatTermin = T.buchungen.some((b) => b.einladung_id === eid && b.status === "bestaetigt");
+  if (!confirm(hatTermin ? `Einladung von ${gruppe(e.person_ids)} zurückziehen?\nDer bestätigte Termin wird abgesagt, das Mitglied bekommt eine Absage-Mail.` : `Einladung von ${gruppe(e.person_ids)} beenden?`)) return;
+  tAktion(k, async () => { await tapi("t_zurueckziehen", { einladung_id: eid }); melde("Erledigt"); });
+}
+
+// ----- Termin anbieten -----
+function tArtSetzen(a) { tArt = a; if (a === "beim_mitglied") tPlaetze = Math.min(tPlaetze, 3); tArtZeigen(); }
+function tPlaetzeSetzen(n) { tPlaetze = n; tArtZeigen(); }
+function tArtZeigen() {
+  $("tArtWahl").querySelectorAll("button").forEach((b) => b.classList.toggle("an", b.dataset.w === tArt));
+  $("tPlatzWahl").querySelectorAll("button").forEach((b) => b.classList.toggle("an", Number(b.dataset.w) === tPlaetze));
+  $("tArtHinweis").textContent = tArt === "bei_hansi" ? `Bis zu ${tPlaetze} Personen können sich eintragen, auch aus verschiedenen Einladungen.`
+    : tArt === "beim_mitglied" ? "Hausbesuch: der Termin geht an genau eine Einladung (z. B. ein Ehepaar), die Plätze begrenzen die Personenzahl."
+    : "Das Mitglied wählt „bei mir“ oder „bei Hansi“. Wählt jemand „bei mir“, ist der Termin danach für andere zu.";
+}
+function terminAnlegen() {
+  const d = { datum: $("tDatum").value, von: $("tVon").value, bis: $("tBis").value, besuchsart: tArt, plaetze: tPlaetze, notiz: $("tNotiz").value };
+  if (!d.datum || !d.von || !d.bis) return melde("Bitte Datum, Von und Bis ausfüllen.", true);
+  if (minuten(d.bis) <= minuten(d.von)) return melde("„Bis“ muss nach „Von“ liegen.", true);
+  tAktion($("tAnlegenKnopf"), async () => {
+    await tapi("t_slots_anlegen", { slots: [d] });
+    $("tNotiz").value = "";
+    melde(`Termin ${datumDe(d.datum)} ${d.von} Uhr eingestellt`);
+  });
+}
+
+// ----- Meine Termine -----
+function terminListeZeigen() {
+  const jetzt = Date.now();
+  const karte = (s) => {
+    const bs = T.buchungen.filter((b) => b.slot_id === s.id && ["vorgemerkt", "bestaetigt"].includes(b.status));
+    const jemals = T.buchungen.some((b) => b.slot_id === s.id);
+    const vorbei = new Date(s.ende).getTime() < jetzt;
+    const frei = s.plaetze - s.belegt;
+    let marke;
+    if (s.status === "abgesagt") marke = '<span class="marke rot">abgesagt</span>';
+    else if (bs.some((b) => b.status === "bestaetigt")) marke = '<span class="marke gruen">gebucht</span>';
+    else if (bs.length) marke = '<span class="marke">vorgemerkt</span>';
+    else marke = '<span class="marke blau">geplant</span>';
+    const art = bs[0] ? bs[0].besuchsart : (s.besuchsart === "wahl" && s.buchungen ? "bei_hansi" : s.besuchsart);
+    return `<div class="eintrag"><div class="wann">${twann(s.beginn, s.ende)} ${marke}${s.ist_test ? ' <span class="marke grau">Test</span>' : ""}${s.herkunft === "gegenvorschlag" ? ' <span class="marke grau">Vorschlag</span>' : ""}</div>
+      <div class="klein">${ART[art]} · ${s.belegt}/${s.plaetze} Plätze${s.status === "offen" && frei > 0 && !s.hat_hausbesuch && !vorbei ? ` · ${frei} frei` : ""}${s.notiz ? " · " + esc(s.notiz) : ""}</div>
+      ${bs.map((b) => { const e = einl(b.einladung_id); return `<div class="klein">• ${esc(e ? gruppe(e.person_ids) : "?")} – ${b.status === "bestaetigt" ? "✅ gebucht" : "⏳ wartet auf Freigabe"}${b.status === "bestaetigt" ? ` <a href="#" onclick="besuchAusTermin('${b.id}'); return false;">📝 Besuch eintragen</a>` : ""}</div>`; }).join("")}
+      ${s.status === "offen" && !vorbei ? `<div class="knoepfe">${jemals
+        ? `<button class="grau" onclick="terminAbsagen(this,'${s.id}',${bs.length})">Termin absagen</button>`
+        : `<button class="grau" onclick="terminLoeschen(this,'${s.id}')">Löschen</button>`}</div>` : ""}</div>`;
+  };
+  const kommend = T.slots.filter((s) => new Date(s.ende).getTime() >= jetzt);
+  const vorbei = T.slots.filter((s) => new Date(s.ende).getTime() < jetzt).reverse();
+  $("terminListe").innerHTML = (kommend.map(karte).join("") || '<p class="hinweis" style="margin:0">Noch keine Termine eingestellt.</p>') +
+    (vorbei.length ? `<details style="margin-top:10px"><summary>Vergangene (14 Tage)</summary>${vorbei.map(karte).join("")}</details>` : "");
+}
+function terminAbsagen(k, id, betroffen) {
+  const s = slot(id);
+  const n = prompt(`Termin ${twann(s.beginn, s.ende)} absagen?${betroffen ? `\n\n${betroffen} Einladung(en) sind betroffen – sie bekommen eine Absage-Mail mit neuem Link zum Wählen.` : ""}\n\nKurze Begründung für die Mail (freiwillig):`, "");
+  if (n === null) return;
+  tAktion(k, async () => { const r = await tapi("t_slot_absagen", { slot_id: id, nachricht: n }); melde(r.betroffen ? `Abgesagt – ${r.betroffen} Mitglied(er) benachrichtigt` : "Termin abgesagt"); });
+}
+function terminLoeschen(k, id) {
+  const s = slot(id);
+  if (!confirm(`Termin ${twann(s.beginn, s.ende)} löschen?`)) return;
+  tAktion(k, async () => { await tapi("t_slot_loeschen", { slot_id: id }); melde("Termin gelöscht"); });
+}
+function besuchAusTermin(bid) {
+  const b = T.buchungen.find((x) => x.id === bid), s = slot(b.slot_id), e = einl(b.einladung_id);
+  neuesFormular();
+  art = b.besuchsart;
+  gewaehltePersonen = e.person_ids.filter((pid) => mitglieder.some((m) => m.person_id === pid));
+  $("datum").value = tfDatum.format(new Date(s.beginn));
+  $("zeitVon").value = tfZeit.format(new Date(s.beginn)); $("zeitBis").value = tfZeit.format(new Date(s.ende));
+  chipsZeigen(); namenVorschlagen();
+  if (!$("mitglied").value) $("mitglied").value = gruppe(e.person_ids);
+  $("ort").value = art === "bei_hansi" ? "bei Hansi" : (adresse(gewaehltePersonen[0]) || person(e.person_ids[0])?.adresse || "");
+  artZeigen(); summeZeigen(); versandZeigen(); entwurfSichern();
+  zeige("neu"); window.scrollTo(0, 0);
+  melde("Aus dem Termin übernommen – jetzt den Besuch ausfüllen.");
+}
+
+// ----- Mitglieder einladen -----
+function mListeZeigen() {
+  const q = ($("mSuche").value || "").toLowerCase();
+  const offen = new Set(T.einladungen.filter((e) => ["offen", "gewaehlt", "gegenvorschlag"].includes(e.status)).flatMap((e) => e.person_ids));
+  const ms = T.mitglieder.filter((m) => !m.test && m.person_id !== "KC-P-002" && (!q || m.display_name.toLowerCase().includes(q)));
+  $("mListe").innerHTML = ms.map((m) => `<label><input type="checkbox" ${mGewaehlt.includes(m.person_id) ? "checked" : ""} onchange="mWahl('${m.person_id}', this.checked)">
+    <span>${esc(m.display_name)}${m.hat_email ? "" : ' <span class="marke rot">keine E-Mail</span>'}${offen.has(m.person_id) ? ' <span class="marke blau">eingeladen</span>' : ""}</span></label>`).join("") || '<p class="hinweis" style="padding:0 12px">Niemand gefunden.</p>';
+  $("mChips").innerHTML = mGewaehlt.map((pid) => `<button class="chip" onclick="mWahl('${pid}', false)">${esc(person(pid)?.display_name || pid)} ✕</button>`).join("");
+  $("gemeinsamKnopf").textContent = `Gemeinsam einladen${mGewaehlt.length > 1 ? ` (${mGewaehlt.length})` : ""}`;
+  $("gemeinsamKnopf").disabled = mGewaehlt.length < 2 || mGewaehlt.length > 3;
+  $("einzelnKnopf").textContent = mGewaehlt.length > 1 ? `Jeden einzeln einladen (${mGewaehlt.length})` : "Einladen";
+  $("einzelnKnopf").disabled = !mGewaehlt.length;
+}
+function mWahl(pid, an) {
+  mGewaehlt = an ? [...new Set([...mGewaehlt, pid])] : mGewaehlt.filter((p) => p !== pid);
+  mListeZeigen();
+}
+function einladen(gemeinsam) {
+  if (!mGewaehlt.length) return melde("Bitte Mitglieder auswählen.", true);
+  if (gemeinsam && mGewaehlt.length > 3) return melde("Gemeinsam höchstens 3 Personen.", true);
+  const frei = T.slots.filter((s) => s.status === "offen" && !s.ist_test && new Date(s.beginn) > new Date() && s.belegt < s.plaetze).length;
+  const gruppen = gemeinsam ? [mGewaehlt] : mGewaehlt.map((p) => [p]);
+  const text = gemeinsam ? `${gruppe(mGewaehlt)} gemeinsam einladen?` : `${gruppen.length} Einladung(en) verschicken?`;
+  if (!confirm(`${text}\n\nZurzeit ${frei} freie Termine.${frei ? "" : "\nTipp: erst Termine einstellen – sonst können sie nur Gegenvorschläge machen."}\nAntwortfrist: 3 Tage.`)) return;
+  tAktion(gemeinsam ? $("gemeinsamKnopf") : $("einzelnKnopf"), async () => {
+    const r = await tapi("t_einladen", { gruppen, nachricht: $("mNachricht").value });
+    const h = r.ergebnisse.map((x) => x.fehler
+      ? `<div class="eintrag"><b>${esc(x.namen)}</b>: <span style="color:#a51d1d">${esc(x.fehler)}</span></div>`
+      : `<div class="eintrag"><b>${esc(x.namen)}</b>: ${x.mail ? "✉️ Mail ist raus" : '<span style="color:#a51d1d">keine Mail zugestellt</span> – Link bitte selbst schicken'}
+         <div class="knoepfe"><button onclick="linkTeilen('${x.link}', '${esc(x.namen)}')">🔗 Link teilen</button></div></div>`);
+    $("einladenErgebnis").innerHTML = h.join("");
+    mGewaehlt = []; $("mNachricht").value = "";
+    melde(`${r.ergebnisse.filter((x) => !x.fehler).length} Einladung(en) verschickt`);
+  });
+}
+async function linkTeilen(link, namen) {
+  const text = `Hallo! Hier kannst du dir einen Termin für unser Treffen aussuchen: ${link}\nGruß Hansi`;
+  try {
+    if (navigator.share) { await navigator.share({ title: "Köcheclub Werne – Termin", text }); return; }
+    await navigator.clipboard.writeText(link); melde(`Link für ${namen} kopiert`);
+  } catch (e) { if (e && e.name !== "AbortError") prompt("Link zum Kopieren:", link); }
+}
+function linkNeu(k, eid) {
+  const e = einl(eid);
+  if (!confirm(`Neuen Link für ${gruppe(e.person_ids)} erzeugen?\nDer alte Link aus der Mail funktioniert dann nicht mehr.`)) return;
+  tAktion(k, async () => { const r = await tapi("t_link", { einladung_id: eid }); await linkTeilen(r.link, gruppe(e.person_ids)); });
+}
+
+// ----- Einladungen -----
+function einladungListeZeigen() {
+  const liste = T.einladungen.filter((e) => e.status !== "zurueckgezogen").slice(0, 40);
+  $("einladungListe").innerHTML = liste.map((e) => {
+    const [txt, farbe] = E_STATUS[e.status] || [e.status, "grau"];
+    const b = T.buchungen.find((x) => x.einladung_id === e.id && ["vorgemerkt", "bestaetigt"].includes(x.status));
+    const s = b && slot(b.slot_id);
+    return `<div class="eintrag"><b>${esc(gruppe(e.person_ids))}</b> <span class="marke ${farbe}">${txt}</span>${e.ist_test ? ' <span class="marke grau">Test</span>' : ""}
+      <div class="klein">eingeladen ${zeitDe(e.erstellt_am)}${e.status === "offen" ? ` · Frist bis ${zeitDe(e.gueltig_bis)}` : ""}${e.geoeffnet_am ? " · Link geöffnet" : " · Link noch nicht geöffnet"}${s ? ` · ${twann(s.beginn, s.ende)}` : ""}</div>
+      ${e.bemerkung ? `<div class="klein">„${esc(e.bemerkung)}“</div>` : ""}
+      <div class="knoepfe">
+        ${["offen", "gewaehlt", "gegenvorschlag", "bestaetigt"].includes(e.status) ? `<button class="grau" onclick="linkNeu(this,'${e.id}')">🔗 Link teilen</button>` : ""}
+        ${["abgelaufen", "abgesagt"].includes(e.status) ? `<button onclick="erneutEinladen(this,'${e.id}')">Erneut einladen</button>` : ""}
+        <button class="grau" onclick="zurueckziehen(this,'${e.id}')">${e.status === "bestaetigt" ? "Termin absagen" : "Zurückziehen"}</button>
+      </div></div>`;
+  }).join("") || '<p class="hinweis" style="margin:0">Noch niemand eingeladen.</p>';
+}
+
+// ----- Google-Kalender -----
+function kalenderZeigen() {
+  const k = T.kalender || {};
+  let h;
+  if (!k.verbunden) {
+    h = `<div class="ampel orange">Noch nicht verbunden – Termine stehen noch nicht in deinem Google-Kalender.</div>`;
+  } else {
+    const alter = k.letzter_abruf ? (Date.now() - new Date(k.letzter_abruf).getTime()) / 60000 : null;
+    if (alter === null) h = `<div class="ampel orange">Schlüssel erzeugt, aber das Google-Skript hat sich noch nie gemeldet. Bitte die Schritte unten erledigen.</div>`;
+    else if (alter > 20) h = `<div class="ampel rot">⚠️ Abgleich läuft nicht – letzter Abruf ${zeitDe(k.letzter_abruf)} (vor ${Math.round(alter)} Min.). Stand im Google-Kalender ist veraltet.</div>`;
+    else h = `<div class="ampel gruen">✅ Abgleich läuft – letzter Abruf vor ${Math.max(0, Math.round(alter))} Min.${k.offen ? ` · ${k.offen} Änderung(en) folgen beim nächsten Lauf` : " · alles eingetragen"}</div>`;
+    if (k.letzter_fehler) h += `<div class="ampel rot" style="margin-top:6px">Fehler beim letzten Abgleich: ${esc(k.letzter_fehler)}</div>`;
+  }
+  h += `<p class="hinweis">Farben im Kalender: grau = geplant, gelb = vorgemerkt, grün = gebucht, orange = Vorschlag eines Mitglieds, rot = abgesagt.</p>
+    <div class="knoepfe"><button class="${k.verbunden ? "grau" : "voll"}" onclick="kalenderVerbinden(this)">${k.verbunden ? "Neuen Schlüssel erzeugen" : "Google-Kalender verbinden"}</button></div>
+    <div id="kalenderSchritte"></div>`;
+  $("kalender").innerHTML = h;
+}
+function kalenderVerbinden(k) {
+  if (T.kalender?.verbunden && !confirm("Neuen Schlüssel erzeugen? Der alte funktioniert dann nicht mehr – du musst ihn im Google-Skript ersetzen.")) return;
+  k.disabled = true;
+  tapi("t_kalender_schluessel").then((r) => {
+    $("kalenderSchritte").innerHTML = `<p><b>Dein Kalender-Schlüssel</b> (nur jetzt sichtbar):</p><div class="schluessel" id="kalSchluessel">${esc(r.schluessel)}</div>
+      <div class="knoepfe"><button onclick="kopieren('${r.schluessel}','Schlüssel')">Schlüssel kopieren</button><button onclick="skriptKopieren()">Skript kopieren</button></div>
+      <ol class="schritte">
+        <li>Am PC <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com → Neues Projekt</a> öffnen (mit deinem Google-Konto).</li>
+        <li>Alles im Editor löschen, <b>Skript kopieren</b> und einfügen, oben Namen „KC Termine“ geben, speichern.</li>
+        <li>Links ⚙️ <b>Projekteinstellungen</b> → ganz unten <b>Skripteigenschaft hinzufügen</b>: Name <code>KC_KALENDER_SCHLUESSEL</code>, Wert = Schlüssel von oben. Speichern.</li>
+        <li>Zurück zum Editor, oben Funktion <b>einrichten</b> auswählen → <b>Ausführen</b> → Google fragt nach Erlaubnis für Kalender und Internet → erlauben.</li>
+        <li>Fertig: alle 5 Minuten trägt das Skript die Termine in deinen Google-Kalender ein. Hier oben wird es grün.</li>
+      </ol>
+      <p class="hinweis">Ausführliche Anleitung: <a href="https://github.com/Sire65/KC-Besuchsprotokoll/blob/main/google/ANLEITUNG.md" target="_blank" rel="noopener">google/ANLEITUNG.md</a></p>`;
+    T.kalender = { ...(T.kalender || {}), verbunden: true, letzter_abruf: null, letzter_fehler: null };
+  }).catch((e) => melde(e.message, true)).finally(() => { k.disabled = false; });
+}
+async function kopieren(text, was) {
+  try { await navigator.clipboard.writeText(text); melde(`${was} kopiert`); } catch { prompt(`${was} zum Kopieren:`, text); }
+}
+async function skriptKopieren() {
+  try { const r = await fetch(SKRIPT_URL, { cache: "no-store" }); if (!r.ok) throw new Error(); await kopieren(await r.text(), "Skript"); }
+  catch { melde("Skript konnte nicht geladen werden – bitte über die Anleitung kopieren.", true); }
+}
+
+// ----- Protokoll -----
+const P_TEXT = {
+  termin_angeboten: "Termin eingestellt", termin_geloescht: "Termin gelöscht", termin_abgesagt: "Termin abgesagt",
+  eingeladen: "Eingeladen", erneut_eingeladen: "Erneut eingeladen", link_erneuert: "Neuer Link", link_geoeffnet: "Link geöffnet",
+  termin_gewaehlt: "Termin gewählt", gegenvorschlag: "Gegenvorschlag", abgesagt: "Kein Besuch gewünscht", antwort_zurueckgenommen: "Antwort zurückgenommen",
+  buchung_bestaetigt: "Bestätigt", buchung_abgelehnt: "Abgelehnt", gegenvorschlag_angenommen: "Vorschlag angenommen", neue_termine_angeboten: "Neue Termine angeboten",
+  buchung_storniert_termin_abgesagt: "Buchung storniert (Termin fiel aus)", einladung_zurueckgezogen: "Einladung zurückgezogen",
+  frist_abgelaufen: "Frist abgelaufen", erinnerung_gesendet: "Erinnerung verschickt", hansi_benachrichtigt: "Dich benachrichtigt",
+  google_abgeglichen: "Google-Kalender abgeglichen", kalender_schluessel_neu: "Kalender-Schlüssel erzeugt",
+};
+const P_WER = { hansi: "Du", mitglied: "Mitglied", system: "System", kalender: "Google" };
+function protokollZeigen() {
+  $("protokoll").innerHTML = T.protokoll.map((p) => {
+    const e = p.einladung_id && einl(p.einladung_id);
+    const d = p.details || {};
+    const info = [d.namen || (e ? gruppe(e.person_ids) : ""), d.wann, d.vorschlaege && d.vorschlaege.join(" / "), d.bemerkung && `„${d.bemerkung}“`, d.versand, d.test && "Test"]
+      .filter(Boolean).map(esc).join(" · ");
+    return `<div class="prot"><span class="klein">${zeitDe(p.zeit)} · ${P_WER[p.wer] || p.wer}</span><br><b>${P_TEXT[p.aktion] || esc(p.aktion)}</b>${info ? " – " + info : ""}</div>`;
+  }).join("") || '<p class="hinweis">Noch keine Einträge.</p>';
 }
 
 // ---------- Update ----------
