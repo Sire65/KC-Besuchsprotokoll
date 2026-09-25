@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#741521">
+<meta name="robots" content="noindex">
+<title>KC Besuchsprotokoll</title>
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Besuche">
+<style>
+  :root {
+    --rot: #741521; --rot-hell: #f6e9eb; --text: #222; --grau: #6b6b6b; --linie: #ddd;
+    --bg: #f4f2f0; --karte: #fff; --gruen: #1f7a3a; --orange: #b25e00;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 17px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  header { background: var(--rot); color: #fff; padding: 10px 16px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 5; }
+  header img { height: 34px; }
+  header h1 { font-size: 19px; margin: 0; font-weight: 600; }
+  nav { display: flex; background: #fff; border-bottom: 1px solid var(--linie); position: sticky; top: 54px; z-index: 4; }
+  nav button { flex: 1; border: 0; background: none; padding: 13px 0; font-size: 16px; color: var(--grau); border-bottom: 3px solid transparent; }
+  nav button.aktiv { color: var(--rot); border-color: var(--rot); font-weight: 600; }
+  main { max-width: 640px; margin: 0 auto; padding: 12px 12px 110px; }
+  .karte { background: var(--karte); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .karte h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .04em; color: var(--rot); margin: 0 0 10px; }
+  label { display: block; font-size: 14px; color: var(--grau); margin: 10px 0 4px; }
+  input, textarea, select { width: 100%; font: inherit; padding: 11px 12px; border: 1px solid #ccc; border-radius: 9px; background: #fff; color: var(--text); }
+  textarea { min-height: 84px; resize: vertical; }
+  .reihe { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .reihe3 { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 8px; }
+  .hinweis { font-size: 14px; color: var(--grau); margin-top: 6px; }
+  .summe { background: var(--rot-hell); border-radius: 9px; padding: 9px 12px; margin-top: 10px; font-weight: 600; color: var(--rot); }
+  .frage { padding: 10px 0; border-top: 1px solid #eee; }
+  .frage:first-of-type { border-top: 0; padding-top: 0; }
+  .frage b { display: block; margin-bottom: 7px; }
+  .wahl { display: flex; flex-wrap: wrap; gap: 7px; }
+  .wahl button { flex: 1 1 auto; min-width: 80px; padding: 11px 8px; font-size: 16px; border: 1.5px solid #ccc; border-radius: 9px; background: #fff; color: var(--text); }
+  .wahl button.an { background: var(--rot); border-color: var(--rot); color: #fff; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip { background: var(--rot-hell); color: var(--rot); border-radius: 20px; padding: 6px 12px; font-size: 15px; border: 0; }
+  .knopf { display: block; width: 100%; border: 0; border-radius: 11px; padding: 15px; font-size: 18px; font-weight: 600; }
+  .knopf.haupt { background: var(--rot); color: #fff; }
+  .knopf.zweit { background: #fff; color: var(--rot); border: 2px solid var(--rot); }
+  .knopf:disabled { opacity: .5; }
+  .fuss { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(244,242,240,.96); padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--linie); }
+  .fuss .knopf { max-width: 616px; margin: 0 auto; }
+  .fotos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .fotos img, .fotos .pdf { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; border: 1px solid #ccc; }
+  .fotos .pdf { display: flex; align-items: center; justify-content: center; font-size: 13px; background: #fff; }
+  .fotos .gespeichert { position: relative; flex-direction: column; }
+  .fotos .gespeichert button { border: 0; background: none; font: inherit; color: var(--rot); }
+  .fotos .gespeichert .weg { position: absolute; top: 2px; right: 4px; color: #a51d1d; font-size: 16px; }
+  .meldung { position: fixed; left: 12px; right: 12px; top: 64px; z-index: 10; padding: 13px 14px; border-radius: 10px; color: #fff; font-weight: 600; display: none; max-width: 616px; margin: 0 auto; }
+  .meldung.ok { background: var(--gruen); display: block; }
+  .meldung.fehler { background: #a51d1d; display: block; }
+  .kpi { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 12px; }
+  .kpi div { background: #fff; border-radius: 12px; padding: 10px; text-align: center; }
+  .kpi b { display: block; font-size: 22px; color: var(--rot); }
+  .kpi span { font-size: 13px; color: var(--grau); }
+  .besuch { background: #fff; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; border: 0; width: 100%; text-align: left; font: inherit; color: inherit; display: block; }
+  .besuch .oben { display: flex; justify-content: space-between; gap: 8px; }
+  .besuch .id { font-size: 13px; color: var(--grau); }
+  .besuch .unten { font-size: 14px; color: var(--grau); margin-top: 3px; }
+  .marke { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #fff1e0; color: var(--orange); margin-top: 5px; }
+  .update { background: #1f4f7a; color: #fff; padding: 12px 16px; }
+  .update b { display: block; }
+  .update ul { margin: 4px 0 10px; padding-left: 20px; font-size: 15px; }
+  .update button { background: #fff; color: #1f4f7a; border: 0; border-radius: 9px; padding: 10px 16px; font: inherit; font-weight: 600; }
+  .version { text-align: center; font-size: 13px; color: var(--grau); margin-top: 18px; }
+  .gesperrt { padding: 40px 20px; text-align: center; }
+  .versteckt { display: none !important; }
+  .bearbeiten-hinweis { background: #fff1e0; color: var(--orange); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .bearbeiten-hinweis button { border: 0; background: none; color: var(--rot); font: inherit; text-decoration: underline; }
+</style>
+</head>
+<body>
+<header><img src="kc-kochmuetze-weiss.webp" alt=""><h1>Besuchsprotokoll</h1></header>
+<div id="update" class="update versteckt">
+  <b id="updateTitel"></b>
+  <ul id="updateNeu"></ul>
+  <button id="updateKnopf" onclick="aktualisieren()">Jetzt aktualisieren</button>
+</div>
+<div id="meldung" class="meldung"></div>
+
+<div id="gesperrt" class="gesperrt versteckt">
+  <p><b>Bitte die Seite über deinen persönlichen Link öffnen.</b></p>
+  <p class="hinweis">Den Link hat Claude dir geschickt.</p>
+</div>
+
+<div id="app" class="versteckt">
+<nav>
+  <button id="tabNeu" class="aktiv" onclick="zeige('neu')">Neuer Besuch</button>
+  <button id="tabListe" onclick="zeige('liste')">Meine Besuche</button>
+</nav>
+
+<main id="ansichtNeu">
+  <div id="bearbeitenHinweis" class="bearbeiten-hinweis versteckt">
+    <span id="bearbeitenText"></span><button onclick="neuesFormular()">Abbrechen</button>
+  </div>
+
+  <div class="karte">
+    <h2>Wo warst du?</h2>
+    <label for="mitgliedWahl">Mitglied auswählen</label>
+    <select id="mitgliedWahl" onchange="mitgliedDazu(this.value)"><option value="">– antippen –</option></select>
+    <div id="mitgliedChips" class="chips"></div>
+    <label for="mitglied">Bei wem (Name / Betrieb)</label>
+    <input id="mitglied" placeholder="z. B. Klaus und Dieter Zander">
+    <label for="ort">Ort</label>
+    <input id="ort" placeholder="Straße, PLZ Ort">
+    <label for="anwesende">Anwesende</label>
+    <input id="anwesende" placeholder="z. B. Klaus, Dieter, Hansi">
+  </div>
+
+  <div class="karte">
+    <h2>Wann und wie weit?</h2>
+    <label for="datum">Datum</label>
+    <input id="datum" type="date">
+    <div class="reihe">
+      <div><label for="zeitVon">Von</label><input id="zeitVon" type="time"></div>
+      <div><label for="zeitBis">Bis</label><input id="zeitBis" type="time"></div>
+    </div>
+    <label for="km">Ein Weg (km)</label>
+    <input id="km" type="text" inputmode="decimal" placeholder="z. B. 12,5">
+    <div id="summe" class="summe versteckt"></div>
+  </div>
+
+  <div class="karte">
+    <h2>Gesprächspunkte</h2>
+    <div id="fragen"></div>
+  </div>
+
+  <div class="karte">
+    <h2>Notizen</h2>
+    <label for="notizen">Notizen und Stichpunkte</label>
+    <textarea id="notizen"></textarea>
+    <label for="vereinbarungen">Vereinbarungen und nächste Schritte</label>
+    <textarea id="vereinbarungen"></textarea>
+    <label for="bemerkungen">Bemerkungen (für die Abrechnung)</label>
+    <textarea id="bemerkungen" style="min-height:60px"></textarea>
+  </div>
+
+  <div class="karte">
+    <h2>Foto vom Papierprotokoll</h2>
+    <p class="hinweis" style="margin-top:0">Du kannst auch nur Mitglied und Datum eintragen und das ausgefüllte Papier fotografieren. Claude trägt den Rest dann ein.</p>
+    <button class="knopf zweit" onclick="document.getElementById('fotoInput').click()">📷 Foto aufnehmen / auswählen</button>
+    <input id="fotoInput" type="file" accept="image/*,application/pdf" multiple class="versteckt" onchange="fotosGewaehlt(this.files)">
+    <div id="fotoVorschau" class="fotos"></div>
+  </div>
+</main>
+
+<main id="ansichtListe" class="versteckt">
+  <label for="jahr" style="margin-top:0">Zeitraum</label>
+  <select id="jahr" onchange="liste()"></select>
+  <div class="kpi" style="margin-top:12px">
+    <div><b id="kpiAnzahl">0</b><span>Besuche</span></div>
+    <div><b id="kpiZeit">0:00</b><span>Stunden</span></div>
+    <div><b id="kpiKm">0</b><span>km gesamt</span></div>
+  </div>
+  <div id="besuchListe"></div>
+  <p class="version">Version <span id="versionAnzeige"></span> · <a href="#" onclick="updatePruefen(true); return false;">Nach Update suchen</a></p>
+</main>
+
+<div id="fussNeu" class="fuss"><button id="speichernKnopf" class="knopf haupt" onclick="speichern()">Speichern</button></div>
+</div>
+
+<script>
+const APP_VERSION = "1.0.0"; // gleich halten mit sw.js und version.json (siehe CHANGELOG.md)
+const API = "https://ptblnpiroqftcvlsrhac.supabase.co/functions/v1/kc-besuche";
+const ENTWURF = "kc_besuch_entwurf";
+
+const FRAGEN = [
+  { f: "f1_praesentation", t: "1 · Weihnachtsmarkt-Präsentation: welche Gestaltung?", o: [["rathaus","Rathaus"],["rot","Rote Version"],["offen","Noch offen"]] },
+  { f: "f2_bild_spruch", t: "2 · Mit Bild und Spruch in der Präsentation?", o: [["ja","Ja"],["nein","Nein"],["klaeren","Noch klären"]] },
+  { f: "f3_kasse", t: "3 · Kassenprogramm: welche Oberfläche?", o: [["alt","Alte"],["neu","Neue"],["offen","Offen"]] },
+  { f: "f4_dienstplan", t: "4 · Dienstplanprogramm einsetzen?", o: [["ja","Ja"],["nein","Nein"],["spaeter","Später"]] },
+  { f: "f5_verwaltung", t: "5 · KC Verwaltung einsetzen?", o: [["ja","Ja"],["nein","Nein"],["spaeter","Später"]] },
+  { f: "f6_router", t: "6 · Stand vernetzen mit 5G-Router?", o: [["ja","Ja"],["nein","Nein"],["spaeter","Später"]] },
+];
+const TEXTFELDER = ["mitglied","ort","anwesende","datum","zeitVon","zeitBis","km","notizen","vereinbarungen","bemerkungen","f2_spruch","f7_thema","f7_antwort"];
+const SPALTE = { zeitVon: "zeit_von", zeitBis: "zeit_bis", km: "km_einfach" };
+
+let KEY = "", mitglieder = [], besuche = [], antworten = {}, gewaehltePersonen = [], neueFotos = [], bearbeiteId = null, bearbeiteFotos = [];
+const $ = (id) => document.getElementById(id);
+
+// ---------- Start ----------
+(function start() {
+  $("versionAnzeige").textContent = APP_VERSION;
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  updatePruefen();
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) updatePruefen(); });
+  setInterval(updatePruefen, 30 * 60 * 1000);
+  const url = new URL(location.href);
+  const k = url.searchParams.get("k");
+  try { if (k) localStorage.setItem("kc_besuch_key", k); KEY = k || localStorage.getItem("kc_besuch_key") || ""; } catch { KEY = k || ""; }
+  if (!KEY) { $("gesperrt").classList.remove("versteckt"); return; }
+  $("app").classList.remove("versteckt");
+  fragenBauen();
+  neuesFormular();
+  entwurfLaden();
+  ["zeitVon","zeitBis","km"].forEach((id) => $(id).addEventListener("input", summeZeigen));
+  document.addEventListener("input", entwurfSichern);
+  laden();
+})();
+
+async function api(action, daten = {}) {
+  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json", "x-key": KEY }, body: JSON.stringify({ action, ...daten }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(r.status === 401 ? "Kein Zugang – bitte den persönlichen Link neu öffnen." : (j.error || "Fehler " + r.status));
+  return j;
+}
+
+async function laden() {
+  try {
+    const j = await api("init");
+    mitglieder = j.mitglieder || []; besuche = j.besuche || [];
+    const sel = $("mitgliedWahl");
+    sel.innerHTML = '<option value="">– antippen –</option>' + mitglieder.map((m) => `<option value="${m.person_id}">${esc(m.display_name)}</option>`).join("");
+    jahreFuellen(); liste();
+  } catch (e) { melde(e.message, true); }
+}
+
+// ---------- Formular ----------
+function fragenBauen() {
+  let h = "";
+  for (const q of FRAGEN) {
+    h += `<div class="frage"><b>${q.t}</b><div class="wahl" data-feld="${q.f}">` +
+      q.o.map(([w, l]) => `<button type="button" data-w="${w}" onclick="waehle('${q.f}','${w}')">${l}</button>`).join("") + `</div>`;
+    if (q.f === "f2_bild_spruch") h += `<div id="spruchFeld" class="versteckt"><label for="f2_spruch">Gewünschter Spruch oder Hinweis</label><input id="f2_spruch"></div>`;
+    h += `</div>`;
+  }
+  h += `<div class="frage"><b>7 · Weiterer Punkt</b><input id="f7_thema" placeholder="Thema"><label for="f7_antwort">Ergebnis</label><input id="f7_antwort"></div>`;
+  $("fragen").innerHTML = h;
+}
+
+function waehle(feld, wert) {
+  antworten[feld] = antworten[feld] === wert ? null : wert;
+  wahlZeigen(); entwurfSichern();
+}
+function wahlZeigen() {
+  document.querySelectorAll(".wahl").forEach((w) => {
+    const f = w.dataset.feld;
+    w.querySelectorAll("button").forEach((b) => b.classList.toggle("an", antworten[f] === b.dataset.w));
+  });
+  $("spruchFeld").classList.toggle("versteckt", antworten.f2_bild_spruch !== "ja");
+}
+
+function mitgliedDazu(pid) {
+  $("mitgliedWahl").value = "";
+  if (!pid || gewaehltePersonen.includes(pid)) return;
+  const m = mitglieder.find((x) => x.person_id === pid); if (!m) return;
+  gewaehltePersonen.push(pid);
+  chipsZeigen(); namenVorschlagen();
+  if (!$("ort").value && m.street) $("ort").value = [m.street, [m.postal_code, m.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  entwurfSichern();
+}
+function mitgliedWeg(pid) { gewaehltePersonen = gewaehltePersonen.filter((p) => p !== pid); chipsZeigen(); namenVorschlagen(); entwurfSichern(); }
+function chipsZeigen() {
+  $("mitgliedChips").innerHTML = gewaehltePersonen.map((pid) => {
+    const m = mitglieder.find((x) => x.person_id === pid);
+    return `<button class="chip" onclick="mitgliedWeg('${pid}')">${esc(m ? m.display_name : pid)} ✕</button>`;
+  }).join("");
+}
+function namenVorschlagen() {
+  const ms = gewaehltePersonen.map((pid) => mitglieder.find((x) => x.person_id === pid)).filter(Boolean);
+  if (!ms.length) return;
+  const nach = [...new Set(ms.map((m) => m.family_name).filter(Boolean))];
+  const vor = ms.map((m) => m.given_name || m.display_name);
+  $("mitglied").value = nach.length === 1 && ms.length > 1 ? vor.join(" und ") + " " + nach[0] : ms.map((m) => m.display_name).join(", ");
+  $("anwesende").value = [...vor, "Hansi"].join(", ");
+}
+
+function summeZeigen() {
+  const von = $("zeitVon").value, bis = $("zeitBis").value, km = parseFloat(($("km").value || "").replace(",", "."));
+  const teile = [];
+  if (von && bis) { const d = minuten(bis) - minuten(von); if (d > 0) teile.push("Dauer " + hm(d) + " Std."); }
+  if (!isNaN(km)) teile.push("Hin und zurück " + fmtKm(km * 2) + " km");
+  $("summe").textContent = teile.join(" · ");
+  $("summe").classList.toggle("versteckt", !teile.length);
+}
+
+function neuesFormular() {
+  bearbeiteId = null; bearbeiteFotos = []; neueFotos = []; antworten = {}; gewaehltePersonen = [];
+  TEXTFELDER.forEach((id) => { const el = $(id); if (el) el.value = ""; });
+  $("datum").value = heute();
+  const d = new Date(); d.setMinutes(Math.floor(d.getMinutes() / 15) * 15);
+  $("zeitVon").value = d.toTimeString().slice(0, 5);
+  $("bearbeitenHinweis").classList.add("versteckt");
+  $("speichernKnopf").textContent = "Speichern";
+  chipsZeigen(); wahlZeigen(); summeZeigen(); fotosZeigen();
+  try { localStorage.removeItem(ENTWURF); } catch {}
+}
+
+function formularDaten() {
+  const d = {};
+  TEXTFELDER.forEach((id) => { d[SPALTE[id] || id] = $(id).value.trim(); });
+  if (d.km_einfach !== "") {
+    d.km_einfach = parseFloat(d.km_einfach.replace(",", "."));
+    if (isNaN(d.km_einfach) || d.km_einfach < 0) d.km_einfach = "ungueltig";
+  }
+  FRAGEN.forEach((q) => { d[q.f] = antworten[q.f] || null; });
+  if (antworten.f2_bild_spruch !== "ja") d.f2_spruch = null;
+  d.person_ids = gewaehltePersonen;
+  return d;
+}
+
+// Entwurf bleibt auf dem Handy, falls die Verbindung weg ist
+function entwurfSichern() {
+  if (bearbeiteId) return;
+  try { localStorage.setItem(ENTWURF, JSON.stringify({ felder: Object.fromEntries(TEXTFELDER.map((id) => [id, $(id).value])), antworten, gewaehltePersonen })); } catch {}
+}
+function entwurfLaden() {
+  try {
+    const e = JSON.parse(localStorage.getItem(ENTWURF) || "null"); if (!e) return;
+    Object.entries(e.felder || {}).forEach(([id, v]) => { if ($(id) && v) $(id).value = v; });
+    antworten = e.antworten || {}; gewaehltePersonen = e.gewaehltePersonen || [];
+    wahlZeigen(); summeZeigen();
+  } catch {}
+}
+
+async function speichern() {
+  const d = formularDaten();
+  if (!d.mitglied) { melde("Bitte eintragen, bei wem du warst.", true); $("mitglied").focus(); return; }
+  if (!d.datum) { melde("Bitte das Datum eintragen.", true); return; }
+  if (d.km_einfach === "ungueltig") { melde("Bitte bei km nur eine Zahl eintragen.", true); $("km").focus(); return; }
+  if (d.zeit_von && d.zeit_bis && minuten(d.zeit_bis) <= minuten(d.zeit_von)) { melde("„Bis“ muss nach „Von“ liegen.", true); return; }
+  const hatFotos = neueFotos.length + bearbeiteFotos.length > 0;
+  const nichtsBeantwortet = FRAGEN.every((q) => !d[q.f]) && !d.notizen && !d.vereinbarungen;
+  d.status = hatFotos && nichtsBeantwortet ? "foto_auswerten" : "fertig";
+
+  const k = $("speichernKnopf"); k.disabled = true; k.textContent = "Wird gespeichert …";
+  try {
+    let { besuch } = await api("speichern", { besuch_id: bearbeiteId, daten: d });
+    for (let i = 0; i < neueFotos.length; i++) {
+      k.textContent = `Foto ${i + 1} von ${neueFotos.length} wird hochgeladen …`;
+      besuch = (await api("foto", { besuch_id: besuch.besuch_id, mime: neueFotos[i].mime, data: neueFotos[i].data })).besuch;
+    }
+    const i = besuche.findIndex((b) => b.besuch_id === besuch.besuch_id);
+    if (i >= 0) besuche[i] = besuch; else besuche.unshift(besuch);
+    melde(`Gespeichert – ${besuch.besuch_id}${d.status === "foto_auswerten" ? " (Claude wertet das Foto aus)" : ""}`);
+    neuesFormular(); jahreFuellen(); liste(); window.scrollTo(0, 0);
+  } catch (e) { melde(e.message, true); }
+  finally { k.disabled = false; k.textContent = bearbeiteId ? "Änderungen speichern" : "Speichern"; }
+}
+
+// ---------- Fotos ----------
+async function fotosGewaehlt(files) {
+  for (const f of files) {
+    try {
+      if (f.type === "application/pdf") neueFotos.push({ mime: f.type, data: await alsBase64(f), vorschau: null });
+      else { const v = await verkleinern(f); neueFotos.push({ mime: "image/jpeg", data: v.split(",")[1], vorschau: v }); }
+    } catch { melde("Das Bild konnte nicht gelesen werden.", true); }
+  }
+  $("fotoInput").value = ""; fotosZeigen();
+}
+function verkleinern(file) {
+  return new Promise((ok, fehl) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const s = Math.min(1, 2200 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      ok(c.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = fehl; img.src = url;
+  });
+}
+function alsBase64(file) {
+  return new Promise((ok, fehl) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = fehl; r.readAsDataURL(file); });
+}
+function fotosZeigen() {
+  const alt = bearbeiteFotos.map((p) => `<div class="pdf gespeichert"><button onclick="fotoOeffnen('${p}')">📄 ansehen</button><button class="weg" onclick="gespeichertesFotoWeg('${p}')">✕</button></div>`);
+  const neu = neueFotos.map((f, i) => f.vorschau ? `<img src="${f.vorschau}" alt="" onclick="fotoWeg(${i})">` : `<div class="pdf" onclick="fotoWeg(${i})">PDF ✕</div>`);
+  $("fotoVorschau").innerHTML = alt.concat(neu).join("");
+}
+function fotoWeg(i) { if (confirm("Dieses Foto wieder entfernen?")) { neueFotos.splice(i, 1); fotosZeigen(); } }
+async function gespeichertesFotoWeg(pfad) {
+  if (!confirm("Dieses Foto endgültig löschen?")) return;
+  try {
+    const { besuch } = await api("fotoloeschen", { besuch_id: bearbeiteId, pfad });
+    const i = besuche.findIndex((b) => b.besuch_id === besuch.besuch_id); if (i >= 0) besuche[i] = besuch;
+    bearbeiteFotos = besuch.fotos; fotosZeigen(); liste(); melde("Foto gelöscht");
+  } catch (e) { melde(e.message, true); }
+}
+async function fotoOeffnen(pfad) {
+  const w = window.open("", "_blank");
+  try { const { url } = await api("fotolink", { pfad }); if (w) w.location = url; else location.href = url; }
+  catch (e) { if (w) w.close(); melde(e.message, true); }
+}
+
+// ---------- Liste ----------
+function jahreFuellen() {
+  const sel = $("jahr"), alt = sel.value;
+  const monate = [...new Set(besuche.map((b) => b.datum.slice(0, 7)))].sort().reverse();
+  const jahre = [...new Set(besuche.map((b) => b.datum.slice(0, 4)))].sort().reverse();
+  sel.innerHTML = `<option value="">Alle Besuche</option>` +
+    jahre.map((j) => `<option value="${j}">Jahr ${j}</option>`).join("") +
+    monate.map((m) => `<option value="${m}">${monatName(m)}</option>`).join("");
+  sel.value = alt;
+}
+function liste() {
+  const f = $("jahr").value;
+  const bs = besuche.filter((b) => !f || b.datum.startsWith(f));
+  $("kpiAnzahl").textContent = bs.length;
+  $("kpiZeit").textContent = hm(bs.reduce((s, b) => s + (b.dauer_min || 0), 0));
+  $("kpiKm").textContent = fmtKm(bs.reduce((s, b) => s + Number(b.km_gesamt || 0), 0));
+  $("besuchListe").innerHTML = bs.length ? bs.map((b) => `
+    <button class="besuch" onclick="bearbeiten('${b.besuch_id}')">
+      <div class="oben"><b>${esc(b.mitglied)}</b><span class="id">${b.besuch_id}</span></div>
+      <div class="unten">${datumDe(b.datum)}${b.zeit_von ? " · " + b.zeit_von.slice(0, 5) + (b.zeit_bis ? "–" + b.zeit_bis.slice(0, 5) : "") : ""}${b.dauer_min ? " (" + hm(b.dauer_min) + " Std.)" : ""}${b.km_gesamt != null ? " · " + fmtKm(b.km_gesamt) + " km" : ""}</div>
+      ${b.status === "foto_auswerten" ? '<span class="marke">Foto – Claude wertet aus</span>' : ""}
+      ${b.fotos && b.fotos.length ? `<span class="unten"> 📷 ${b.fotos.length}</span>` : ""}
+    </button>`).join("") : '<p class="hinweis">Noch keine Besuche eingetragen.</p>';
+}
+
+function bearbeiten(id) {
+  const b = besuche.find((x) => x.besuch_id === id); if (!b) return;
+  neuesFormular();
+  bearbeiteId = id; bearbeiteFotos = b.fotos || [];
+  const wert = { mitglied: b.mitglied, ort: b.ort, anwesende: b.anwesende, datum: b.datum, zeitVon: (b.zeit_von || "").slice(0, 5),
+    zeitBis: (b.zeit_bis || "").slice(0, 5), km: b.km_einfach ?? "", notizen: b.notizen, vereinbarungen: b.vereinbarungen,
+    bemerkungen: b.bemerkungen, f2_spruch: b.f2_spruch, f7_thema: b.f7_thema, f7_antwort: b.f7_antwort };
+  Object.entries(wert).forEach(([k, v]) => { $(k).value = v ?? ""; });
+  FRAGEN.forEach((q) => { antworten[q.f] = b[q.f]; });
+  gewaehltePersonen = b.person_ids || [];
+  $("bearbeitenText").textContent = "Du änderst " + id;
+  $("bearbeitenHinweis").classList.remove("versteckt");
+  $("speichernKnopf").textContent = "Änderungen speichern";
+  chipsZeigen(); wahlZeigen(); summeZeigen(); fotosZeigen();
+  zeige("neu"); window.scrollTo(0, 0);
+}
+
+function zeige(a) {
+  $("ansichtNeu").classList.toggle("versteckt", a !== "neu");
+  $("ansichtListe").classList.toggle("versteckt", a !== "liste");
+  $("fussNeu").classList.toggle("versteckt", a !== "neu");
+  $("tabNeu").classList.toggle("aktiv", a === "neu");
+  $("tabListe").classList.toggle("aktiv", a === "liste");
+}
+
+// ---------- Update ----------
+function versionNeuer(a, b) {
+  const x = a.split(".").map(Number), y = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); }
+  return false;
+}
+async function updatePruefen(vonHand = false) {
+  try {
+    const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error();
+    const v = await r.json();
+    if (versionNeuer(v.version, APP_VERSION)) {
+      $("updateTitel").textContent = `Neue Version ${v.version} ist da`;
+      $("updateNeu").innerHTML = (v.neu || []).map((t) => `<li>${esc(t)}</li>`).join("");
+      $("update").classList.remove("versteckt");
+    } else if (vonHand) melde(`Du hast die neueste Version (${APP_VERSION}).`);
+  } catch { if (vonHand) melde("Keine Verbindung – Update-Prüfung nicht möglich.", true); }
+}
+async function aktualisieren() {
+  $("updateKnopf").disabled = true; $("updateKnopf").textContent = "Wird aktualisiert …";
+  entwurfSichern();
+  try {
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    if (reg) { await reg.update(); if (reg.waiting) reg.waiting.postMessage("jetzt-aktivieren"); }
+    const ks = await caches.keys();
+    await Promise.all(ks.filter((k) => k.startsWith("kc-besuche-")).map((k) => caches.delete(k)));
+  } catch {}
+  location.reload();
+}
+
+// ---------- Hilfen ----------
+function melde(t, fehler = false) {
+  const m = $("meldung"); m.textContent = t; m.className = "meldung " + (fehler ? "fehler" : "ok");
+  clearTimeout(melde.t); melde.t = setTimeout(() => { m.className = "meldung"; }, fehler ? 6000 : 3500);
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function heute() { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+function minuten(t) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
+function hm(min) { return Math.floor(min / 60) + ":" + String(min % 60).padStart(2, "0"); }
+function fmtKm(x) { return Number(x).toLocaleString("de-DE", { maximumFractionDigits: 1 }); }
+function datumDe(d) { const [y, m, t] = d.split("-"); return `${t}.${m}.${y}`; }
+function monatName(ym) { const [y, m] = ym.split("-"); return new Date(y, m - 1, 1).toLocaleString("de-DE", { month: "long", year: "numeric" }); }
+</script>
+</body>
+</html>
