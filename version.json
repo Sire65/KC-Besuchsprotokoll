@@ -1,7 +1,10 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "datum": "2026-09-25",
   "neu": [
-    "Erste Version: Besuch eintragen, Foto vom Papierprotokoll, Liste mit Summen"
+    "Neu: „Mitglied kommt zu mir“ – nur Zeit, keine km",
+    "Neu: Zusammenfassung ans Mitglied per Push und E-Mail",
+    "Neu: Foto vom Papierprotokoll auswerten – Felder werden automatisch ausgefüllt",
+    "Neu: Knopf „Auf Startbildschirm“"
   ]
 }

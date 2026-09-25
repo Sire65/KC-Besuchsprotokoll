@@ -7,6 +7,13 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.1.0 – 25.09.2026
+- Besuchsart „Ich fahre hin“ / „Mitglied kommt zu mir“ (dann 0 km, nur Zeit)
+- Häkchen „Zusammenfassung ans Mitglied“: Push sofort (KC Communicator), E-Mail über Outlook-Automatik am PC
+- „✨ Foto auswerten“: Papierprotokoll wird gelesen und füllt alle Felder, danach prüfen und „Speichern & senden“
+- Knopf „📲 Auf Startbildschirm“ (Android/Chrome)
+- Liste zeigt „kam zu mir“ und „verschickt“
+
 ## 1.0.0 – 25.09.2026
 - Erste Version: Besuch eintragen (Mitglied, Ort, Zeit, km), Gesprächspunkte 1–7, Notizen
 - Foto vom Papierprotokoll (Claude wertet aus)
