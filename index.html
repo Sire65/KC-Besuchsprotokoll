@@ -156,7 +156,9 @@
   <div class="karte">
     <h2>Wann und wie weit?</h2>
     <label for="datum">Datum</label>
-    <input id="datum" type="date">
+    <input id="datum" type="date" onchange="datumGeaendert()">
+    <label class="haken" style="margin-top:12px"><input type="checkbox" id="geplant" onchange="geplantSetzen(this.checked)"> <span>📅 Geplant – der Besuch findet erst noch statt</span></label>
+    <p class="hinweis versteckt" id="geplantHinweis">Zählt noch nicht bei Stunden und km, es wird nichts verschickt. Nach dem Besuch hier öffnen, Häkchen entfernen, ausfüllen, speichern.</p>
     <div class="reihe">
       <div><label for="zeitVon">Von</label><input id="zeitVon" type="time"></div>
       <div><label for="zeitBis">Bis</label><input id="zeitBis" type="time"></div>
@@ -208,6 +210,7 @@
     <div><b id="kpiZeit">0:00</b><span>Stunden</span></div>
     <div><b id="kpiKm">0</b><span>km gesamt</span></div>
   </div>
+  <p class="hinweis versteckt" id="kpiGeplant" style="margin-top:-4px"></p>
   <div id="besuchListe"></div>
   <p class="version">Version <span id="versionAnzeige"></span> · <a href="#" onclick="updatePruefen(true); return false;">Nach Update suchen</a></p>
 </main>
@@ -284,7 +287,7 @@
 </div>
 
 <script>
-const APP_VERSION = "1.2.0"; // gleich halten mit sw.js und version.json (siehe CHANGELOG.md)
+const APP_VERSION = "1.2.1"; // gleich halten mit sw.js und version.json (siehe CHANGELOG.md)
 const API = "https://ptblnpiroqftcvlsrhac.supabase.co/functions/v1/kc-besuche";
 const ENTWURF = "kc_besuch_entwurf";
 
@@ -300,7 +303,7 @@ const TEXTFELDER = ["mitglied","ort","anwesende","datum","zeitVon","zeitBis","km
 const SPALTE = { zeitVon: "zeit_von", zeitBis: "zeit_bis", km: "km_einfach" };
 
 let KEY = "", mitglieder = [], besuche = [], antworten = {}, gewaehltePersonen = [], neueFotos = [], bearbeiteId = null, bearbeiteFotos = [];
-let art = "beim_mitglied", schonGesendet = null, installEreignis = null;
+let art = "beim_mitglied", schonGesendet = null, installEreignis = null, geplant = false;
 const $ = (id) => document.getElementById(id);
 
 // ---------- Start ----------
@@ -426,10 +429,23 @@ function artZeigen() {
   $("kmFeld").classList.toggle("versteckt", art === "bei_hansi");
 }
 
+// Geplant (ab 1.2.1): Vorplanung eines Besuchs – zählt nicht in Stunden/km, verschickt nichts
+function geplantSetzen(an) { geplant = !!an; geplantZeigen(); entwurfSichern(); }
+function geplantZeigen() {
+  $("geplant").checked = geplant;
+  $("geplantHinweis").classList.toggle("versteckt", !geplant);
+  versandZeigen();
+}
+function datumGeaendert() { geplantSetzen($("datum").value > heute()); }
+
 function versandZeigen() {
   const namen = gewaehltePersonen.map((pid) => (mitglieder.find((x) => x.person_id === pid) || {}).display_name || pid);
   const box = $("senden");
-  if (schonGesendet) {
+  if (geplant && !schonGesendet) {
+    box.disabled = true;
+    $("sendenText").textContent = "Erst nach dem Besuch";
+    $("versandHinweis").textContent = "Geplante Besuche verschicken nichts.";
+  } else if (schonGesendet) {
     box.checked = true; box.disabled = true;
     $("sendenText").textContent = "Schon verschickt";
     $("versandHinweis").textContent = schonGesendet;
@@ -443,18 +459,18 @@ function versandZeigen() {
     $("versandHinweis").textContent = box.checked ? `Geht an ${namen.join(", ")}: Push sofort, E-Mail kurz danach vom PC.` : "Es wird nichts verschickt.";
   }
   const senden = box.checked && !box.disabled && !schonGesendet;
-  $("speichernKnopf").textContent = senden ? "Speichern & senden" : (bearbeiteId ? "Änderungen speichern" : "Speichern");
+  $("speichernKnopf").textContent = geplant ? "📅 Als geplant speichern" : senden ? "Speichern & senden" : (bearbeiteId ? "Änderungen speichern" : "Speichern");
 }
 
 function neuesFormular() {
   bearbeiteId = null; bearbeiteFotos = []; neueFotos = []; antworten = {}; gewaehltePersonen = [];
-  art = "beim_mitglied"; schonGesendet = null; $("senden").checked = true; $("unsicherHinweis").classList.add("versteckt");
+  art = "beim_mitglied"; schonGesendet = null; geplant = false; $("senden").checked = true; $("unsicherHinweis").classList.add("versteckt");
   TEXTFELDER.forEach((id) => { const el = $(id); if (el) el.value = ""; });
   $("datum").value = heute();
   const d = new Date(); d.setMinutes(Math.floor(d.getMinutes() / 15) * 15);
   $("zeitVon").value = d.toTimeString().slice(0, 5);
   $("bearbeitenHinweis").classList.add("versteckt");
-  artZeigen(); chipsZeigen(); wahlZeigen(); summeZeigen(); fotosZeigen();
+  artZeigen(); chipsZeigen(); wahlZeigen(); summeZeigen(); fotosZeigen(); geplantZeigen();
   try { localStorage.removeItem(ENTWURF); } catch {}
 }
 
@@ -470,21 +486,22 @@ function formularDaten() {
   d.person_ids = gewaehltePersonen;
   d.besuchsart = art;
   if (art === "bei_hansi") d.km_einfach = null;
-  d.zusammenfassung_senden = !!schonGesendet || ($("senden").checked && gewaehltePersonen.length > 0);
+  d.zusammenfassung_senden = !!schonGesendet || (!geplant && $("senden").checked && gewaehltePersonen.length > 0);
   return d;
 }
 
 // Entwurf bleibt auf dem Handy, falls die Verbindung weg ist
 function entwurfSichern() {
   if (bearbeiteId) return;
-  try { localStorage.setItem(ENTWURF, JSON.stringify({ felder: Object.fromEntries(TEXTFELDER.map((id) => [id, $(id).value])), antworten, gewaehltePersonen, art, senden: $("senden").checked })); } catch {}
+  try { localStorage.setItem(ENTWURF, JSON.stringify({ felder: Object.fromEntries(TEXTFELDER.map((id) => [id, $(id).value])), antworten, gewaehltePersonen, art, geplant, senden: $("senden").checked })); } catch {}
 }
 function entwurfLaden() {
   try {
     const e = JSON.parse(localStorage.getItem(ENTWURF) || "null"); if (!e) return;
     Object.entries(e.felder || {}).forEach(([id, v]) => { if ($(id) && v) $(id).value = v; });
     antworten = e.antworten || {}; gewaehltePersonen = e.gewaehltePersonen || [];
-    art = e.art || "beim_mitglied"; if (e.senden === false) $("senden").checked = false;
+    art = e.art || "beim_mitglied"; geplant = !!e.geplant; if (e.senden === false) $("senden").checked = false;
+    geplantZeigen();
     artZeigen(); wahlZeigen(); summeZeigen(); versandZeigen();
   } catch {}
 }
@@ -514,13 +531,14 @@ async function speichern() {
   if (!pruefen(d)) return;
   const hatFotos = neueFotos.length + bearbeiteFotos.length > 0;
   const nichtsBeantwortet = FRAGEN.every((q) => !d[q.f]) && !d.notizen && !d.vereinbarungen;
-  d.status = hatFotos && nichtsBeantwortet ? "foto_auswerten" : "fertig";
+  d.status = geplant && !hatFotos ? "geplant" : hatFotos && nichtsBeantwortet ? "foto_auswerten" : "fertig";
 
   const k = $("speichernKnopf"); k.disabled = true; k.textContent = "Wird gespeichert …";
   try {
     const { besuch, versand } = await speichernIntern(d, k);
     let text = `Gespeichert – ${besuch.besuch_id}`;
-    if (d.status === "foto_auswerten") text += " (Foto noch auswerten)";
+    if (d.status === "geplant") text = `📅 Als geplant gespeichert – ${besuch.besuch_id}`;
+    else if (d.status === "foto_auswerten") text += " (Foto noch auswerten)";
     else if (versand) text += versand.some((v) => v.includes("Push gesendet")) ? " · Push verschickt, Mail folgt" : " · Mail folgt vom PC";
     melde(text);
     neuesFormular(); jahreFuellen(); liste(); window.scrollTo(0, 0);
@@ -548,6 +566,7 @@ async function fotoAuswerten() {
     Object.entries(felder).forEach(([id, wert]) => { if (wert) $(id).value = wert; });
     FRAGEN.forEach((q) => { if (v[q.f]) antworten[q.f] = v[q.f]; });
     if (v.besuchsart) art = v.besuchsart;
+    geplant = false; geplantZeigen();
     $("bearbeitenText").textContent = "Aus dem Foto ausgefüllt – bitte prüfen (" + bearbeiteId + ")";
     $("bearbeitenHinweis").classList.remove("versteckt");
     $("unsicherHinweis").textContent = v.unsicher ? "Bitte prüfen: " + v.unsicher : "";
@@ -619,13 +638,17 @@ function jahreFuellen() {
 function liste() {
   const f = $("jahr").value;
   const bs = besuche.filter((b) => !f || b.datum.startsWith(f));
-  $("kpiAnzahl").textContent = bs.length;
-  $("kpiZeit").textContent = hm(bs.reduce((s, b) => s + (b.dauer_min || 0), 0));
-  $("kpiKm").textContent = fmtKm(bs.reduce((s, b) => s + Number(b.km_gesamt || 0), 0));
+  const zaehlt = bs.filter((b) => b.status !== "geplant"), nGeplant = bs.length - zaehlt.length;
+  $("kpiAnzahl").textContent = zaehlt.length;
+  $("kpiZeit").textContent = hm(zaehlt.reduce((s, b) => s + (b.dauer_min || 0), 0));
+  $("kpiKm").textContent = fmtKm(zaehlt.reduce((s, b) => s + Number(b.km_gesamt || 0), 0));
+  $("kpiGeplant").textContent = nGeplant ? `Dazu ${nGeplant} geplante${nGeplant === 1 ? "r Besuch" : " Besuche"} – ${nGeplant === 1 ? "zählt" : "zählen"} erst nach dem Besuch.` : "";
+  $("kpiGeplant").classList.toggle("versteckt", !nGeplant);
   $("besuchListe").innerHTML = bs.length ? bs.map((b) => `
     <button class="besuch" onclick="bearbeiten('${b.besuch_id}')">
       <div class="oben"><b>${esc(b.mitglied)}</b><span class="id">${b.besuch_id}</span></div>
       <div class="unten">${datumDe(b.datum)}${b.zeit_von ? " · " + b.zeit_von.slice(0, 5) + (b.zeit_bis ? "–" + b.zeit_bis.slice(0, 5) : "") : ""}${b.dauer_min ? " (" + hm(b.dauer_min) + " Std.)" : ""}${b.km_gesamt != null ? " · " + fmtKm(b.km_gesamt) + " km" : ""}</div>
+      ${b.status === "geplant" ? '<span class="marke blau">📅 geplant</span>' : ""}
       ${b.status === "foto_auswerten" ? '<span class="marke">Foto noch auswerten</span>' : ""}
       ${b.besuchsart === "bei_hansi" ? '<span class="marke blau">🏠 kam zu mir</span>' : ""}
       ${b.push_gesendet_am || b.mail_gesendet_am ? '<span class="marke gruen">✉️ verschickt</span>' : ""}
@@ -644,12 +667,13 @@ function bearbeiten(id) {
   FRAGEN.forEach((q) => { antworten[q.f] = b[q.f]; });
   gewaehltePersonen = b.person_ids || [];
   art = b.besuchsart || "beim_mitglied";
+  geplant = b.status === "geplant";
   const gesendet = [b.push_gesendet_am && "Push " + zeitDe(b.push_gesendet_am), b.mail_gesendet_am && "Mail " + zeitDe(b.mail_gesendet_am)].filter(Boolean);
   schonGesendet = gesendet.length ? gesendet.join(" · ") : null;
   $("senden").checked = b.zusammenfassung_senden || !schonGesendet;
-  $("bearbeitenText").textContent = "Du änderst " + id;
+  $("bearbeitenText").textContent = (geplant ? "Geplanter Besuch " : "Du änderst ") + id;
   $("bearbeitenHinweis").classList.remove("versteckt");
-  artZeigen(); chipsZeigen(); wahlZeigen(); summeZeigen(); fotosZeigen();
+  artZeigen(); chipsZeigen(); wahlZeigen(); summeZeigen(); fotosZeigen(); geplantZeigen();
   zeige("neu"); window.scrollTo(0, 0);
 }
 
@@ -852,7 +876,8 @@ function besuchAusTermin(bid) {
   chipsZeigen(); namenVorschlagen();
   if (!$("mitglied").value) $("mitglied").value = gruppe(e.person_ids);
   $("ort").value = art === "bei_hansi" ? "bei Hansi" : (adresse(gewaehltePersonen[0]) || person(e.person_ids[0])?.adresse || "");
-  artZeigen(); summeZeigen(); versandZeigen(); entwurfSichern();
+  geplant = new Date(s.beginn) > new Date();
+  artZeigen(); summeZeigen(); geplantZeigen(); entwurfSichern();
   zeige("neu"); window.scrollTo(0, 0);
   melde("Aus dem Termin übernommen – jetzt den Besuch ausfüllen.");
 }

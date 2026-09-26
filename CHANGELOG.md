@@ -7,6 +7,11 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.2.1 – 26.09.2026
+- Häkchen „📅 Geplant“ im Besuch (Status `geplant`): für die Vorplanung, zählt nicht in Stunden/km/Anzahl, verschickt nichts
+- Wird automatisch gesetzt, wenn das Datum in der Zukunft liegt (abwählbar); „Besuch eintragen“ aus einem künftigen Termin legt ihn als geplant an
+- Liste zeigt „📅 geplant“ und die Zahl der geplanten Besuche; nach „Foto auswerten“ gilt der Besuch als stattgefunden
+
 ## 1.2.0 – 26.09.2026
 - Neuer Reiter „Termine“ (Feature KC-BES-TERMINE): Termine anbieten (bei mir / ich fahre hin / Mitglied wählt, 1–3 Plätze)
 - Mitglieder einzeln oder gemeinsam (max. 3) einladen – Supabase schickt die Mail mit persönlichem Link (KC Communicator, gleicher Absender wie die WM-Umfrage)
