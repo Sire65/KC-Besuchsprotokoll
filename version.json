@@ -1,11 +1,9 @@
 {
-  "version": "1.2.0",
+  "version": "1.2.1",
   "datum": "2026-09-26",
   "neu": [
-    "Neu: Reiter „Termine“ – Termine anbieten, Mitglieder einladen, freigeben",
-    "Mitglieder wählen per Link aus der Mail (bis 3 Personen je Termin) oder schicken 2 Gegenvorschläge",
-    "Du bekommst Push und Mail bei jeder Antwort, das Mitglied nach deiner Freigabe die Bestätigung mit Kalenderdatei",
-    "Antwortfrist 3 Tage, Erinnerung am Vortag, alles im Protokoll",
-    "Automatisch in deinem Google-Kalender: geplant, vorgemerkt, gebucht, abgesagt"
+    "Neu: Häkchen „📅 Geplant“ für Besuche, die erst noch stattfinden",
+    "Geplante Besuche zählen nicht bei Stunden und km und verschicken nichts",
+    "Nach dem Besuch: öffnen, Häkchen entfernen, ausfüllen, speichern"
   ]
 }
