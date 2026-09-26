@@ -201,6 +201,36 @@ async function neuOeffnen(einladungId: string) {
   return { link: `${MITGLIED_SEITE}?t=${token}`, gueltig };
 }
 
+// ---------- Besuchsprotokoll zum Termin (ab 1.3.0) ----------
+// Jeder bestätigte Termin bekommt einen geplanten Besuch in kc_besuche mit den bekannten Daten.
+const hhmm = (iso: string) => fZeit.format(new Date(iso));
+async function besuchZumTermin(buchungId: string, e: any, leute: Person[], slot: any, art: string) {
+  if (e.ist_test) return null;
+  const { data: b } = await db.from("kc_termin_buchungen").select("besuch_id").eq("id", buchungId).single();
+  const zeile = {
+    person_ids: leute.map((l) => l.person_id), mitglied: namenKurz(leute),
+    anwesende: [...leute.map(vorname), "Hansi"].join(", "),
+    ort: art === "bei_hansi" ? "bei Hansi" : adresse(leute[0]) || null,
+    datum: berlinTag(new Date(slot.beginn)), zeit_von: hhmm(slot.beginn), zeit_bis: hhmm(slot.ende),
+    besuchsart: art, geaendert_am: jetzt(),
+  };
+  if (b?.besuch_id) {
+    // Nur Termindaten nachziehen, solange der Besuch noch geplant ist – Inhalte nie überschreiben
+    await db.from("kc_besuche").update(zeile).eq("besuch_id", b.besuch_id).eq("status", "geplant");
+    return b.besuch_id;
+  }
+  const { data: neu, error } = await db.from("kc_besuche").insert({ ...zeile, status: "geplant", zusammenfassung_senden: false }).select("besuch_id").single();
+  if (error || !neu) return null;
+  await db.from("kc_termin_buchungen").update({ besuch_id: neu.besuch_id }).eq("id", buchungId);
+  return neu.besuch_id;
+}
+// Termin fällt weg: noch leeren, geplanten Besuch wieder entfernen (ausgefüllte Besuche bleiben)
+async function besuchEntfernen(besuchId: string | null) {
+  if (!besuchId) return;
+  await db.from("kc_besuche").delete().eq("besuch_id", besuchId).eq("status", "geplant")
+    .is("notizen", null).is("vereinbarungen", null).eq("fotos", "{}");
+}
+
 // ---------- Mails an Mitglieder ----------
 async function einladungSenden(e: any, leute: Person[], link: string, gueltig: string, anlass: "neu" | "erneut" | "neue_termine" | "abgelehnt" | "ausfall", extra = "") {
   const n = leute.length, w = sprache(n);
@@ -332,8 +362,8 @@ async function kalenderEintraege() {
     const beschreibung = [
       `Status: ${titel.replace(/^\S+\s/, "")}`, `Ort: ${artKurz(art)}`,
       s.status !== "abgesagt" ? `Plätze: ${s.belegt} von ${s.plaetze} belegt${frei > 0 && !s.hat_hausbesuch ? ` (${frei} frei)` : ""}` : "",
-      ...bs.map((b: any) => `• ${namenKurz(leuteVon(b.einladung.person_ids))} – ${b.status === "bestaetigt" ? "gebucht" : "vorgemerkt, wartet auf Freigabe"}`),
-      s.notiz ? `Notiz: ${s.notiz}` : "", s.herkunft === "gegenvorschlag" ? "Aus einem Gegenvorschlag des Mitglieds." : "",
+      ...bs.map((b: any) => `• ${namenKurz(leuteVon(b.einladung.person_ids))} – ${b.status === "bestaetigt" ? "gebucht" : "vorgemerkt, wartet auf Freigabe"}${b.besuch_id ? `\n  Protokoll öffnen: ${APP_SEITE}#besuch=${b.besuch_id}` : ""}`),
+      s.notiz ? `Notiz: ${s.notiz}` : "", s.herkunft === "gegenvorschlag" ? "Aus einem Gegenvorschlag des Mitglieds." : s.herkunft === "direkt" ? "Mündlich abgesprochen." : "",
     ].filter(Boolean).join("\n") + `\n\nVerwaltet im KC Besuchsprotokoll: ${APP_SEITE}#termine`;
     eintraege.push({ uid: `slot-${s.id}`, titel, beginn: s.beginn, ende: s.ende, ort, beschreibung, farbe, geloescht: false });
   }
@@ -599,6 +629,7 @@ Deno.serve(async (req) => {
         const ergebnis: string[] = [];
         for (const b of bs ?? []) {
           await db.from("kc_termin_buchungen").update({ status: "storniert", entschieden_am: jetzt() }).eq("id", b.id);
+          await besuchEntfernen(b.besuch_id);
           const { link, gueltig } = await neuOeffnen(b.einladung_id);
           const leute = await personen(b.einladung.person_ids);
           const v = await einladungSenden(b.einladung, leute, link, gueltig, "ausfall", nachricht);
@@ -659,7 +690,8 @@ Deno.serve(async (req) => {
           await db.from("kc_termin_einladungen").update({ status: "bestaetigt", geaendert_am: jetzt() }).eq("id", b.einladung_id);
           const v = await bestaetigungSenden(b.einladung, leute, b.slot, b);
           if (v.some((x) => x.mail)) await db.from("kc_termin_buchungen").update({ bestaetigung_gesendet_am: jetzt() }).eq("id", b.id);
-          await log("hansi", "buchung_bestaetigt", { einladung_id: b.einladung_id, slot_id: b.slot_id, buchung_id: b.id }, { namen: namenKurz(leute), wann: wann(b.slot.beginn, b.slot.ende), versand: versandText(v) });
+          const besuchId = await besuchZumTermin(b.id, b.einladung, leute, b.slot, b.besuchsart);
+          await log("hansi", "buchung_bestaetigt", { einladung_id: b.einladung_id, slot_id: b.slot_id, buchung_id: b.id }, { namen: namenKurz(leute), wann: wann(b.slot.beginn, b.slot.ende), versand: versandText(v), besuch: besuchId || undefined });
           return json({ ok: true, versand: v });
         }
         if (p.entscheidung === "ablehnen") {
@@ -695,7 +727,8 @@ Deno.serve(async (req) => {
           await db.from("kc_termin_einladungen").update({ status: "bestaetigt", geaendert_am: jetzt() }).eq("id", e.id);
           const vs = await bestaetigungSenden(e, leute, s, b);
           if (vs.some((x) => x.mail)) await db.from("kc_termin_buchungen").update({ bestaetigung_gesendet_am: jetzt() }).eq("id", b.id);
-          await log("hansi", "gegenvorschlag_angenommen", { einladung_id: e.id, slot_id: s.id, buchung_id: b.id }, { namen: namenKurz(leute), wann: wann(s.beginn, s.ende), versand: versandText(vs) });
+          const besuchId = await besuchZumTermin(b.id, e, leute, s, art);
+          await log("hansi", "gegenvorschlag_angenommen", { einladung_id: e.id, slot_id: s.id, buchung_id: b.id }, { namen: namenKurz(leute), wann: wann(s.beginn, s.ende), versand: versandText(vs), besuch: besuchId || undefined });
           return json({ ok: true, versand: vs });
         }
         if (p.aktion === "neue_termine") {
@@ -736,6 +769,7 @@ Deno.serve(async (req) => {
         if (!e) throw new Fehler("Einladung nicht gefunden.", 404);
         const { data: bs } = await db.from("kc_termin_buchungen").select("*, slot:kc_termin_slots(*)").eq("einladung_id", e.id).in("status", AKTIV);
         await db.from("kc_termin_buchungen").update({ status: "storniert", entschieden_am: jetzt() }).eq("einladung_id", e.id).in("status", AKTIV);
+        for (const b of bs ?? []) await besuchEntfernen(b.besuch_id);
         await db.from("kc_termin_vorschlaege").update({ status: "zurueckgezogen" }).eq("einladung_id", e.id).eq("status", "offen");
         await db.from("kc_termin_einladungen").update({ status: "zurueckgezogen", geaendert_am: jetzt() }).eq("id", e.id);
         const leute = await personen(e.person_ids);
@@ -754,6 +788,49 @@ Deno.serve(async (req) => {
         }
         await log("hansi", "einladung_zurueckgezogen", { einladung_id: e.id }, { namen: namenKurz(leute), vorher: e.status, versand: versand || undefined });
         return json({ ok: true });
+      }
+
+      // Mündlich abgesprochener Termin: geplanter Besuch → bestätigter Termin (+ Push/Mail mit .ics)
+      case "t_besuch_termin": {
+        const { data: bes } = await db.from("kc_besuche").select("*").eq("besuch_id", p.besuch_id).maybeSingle();
+        if (!bes) throw new Fehler("Besuch nicht gefunden.", 404);
+        const pids: string[] = bes.person_ids ?? [];
+        if (!pids.length) throw new Fehler("Für die Bestätigung bitte oben ein Mitglied auswählen.");
+        if (pids.length > 3) throw new Fehler("Höchstens 3 Personen pro Termin.");
+        if (!bes.zeit_von) throw new Fehler("Für die Bestätigung bitte die Uhrzeit „Von“ eintragen.");
+        const beginn = berlin(bes.datum, String(bes.zeit_von).slice(0, 5));
+        const ende = bes.zeit_bis ? berlin(bes.datum, String(bes.zeit_bis).slice(0, 5)) : new Date(beginn.getTime() + 90 * 60000);
+        const art = bes.besuchsart === "bei_hansi" ? "bei_hansi" : "beim_mitglied";
+        const leute = await personen(pids);
+        const { data: alt } = await db.from("kc_termin_buchungen").select("*, slot:kc_termin_slots(*), einladung:kc_termin_einladungen(*)")
+          .eq("besuch_id", bes.besuch_id).eq("status", "bestaetigt").maybeSingle();
+        let buchung: any, slot: any, einl: any, aktion: string;
+        if (alt) {
+          const geaendert = new Date(alt.slot.beginn).getTime() !== beginn.getTime() || new Date(alt.slot.ende).getTime() !== ende.getTime() || alt.besuchsart !== art;
+          if (geaendert) {
+            const { count } = await db.from("kc_termin_buchungen").select("id", { count: "exact", head: true }).eq("slot_id", alt.slot_id).in("status", AKTIV);
+            if ((count ?? 0) > 1) throw new Fehler("Zu diesem Termin kommen noch andere Mitglieder – bitte Uhrzeit/Ort im Reiter „Termine“ ändern (Termin absagen und neu anbieten).");
+          }
+          ({ data: slot } = await db.from("kc_termin_slots").update({ beginn: beginn.toISOString(), ende: ende.toISOString(), besuchsart: art, geaendert_am: jetzt() }).eq("id", alt.slot_id).select().single());
+          ({ data: buchung } = await db.from("kc_termin_buchungen").update({ besuchsart: art }).eq("id", alt.id).select().single());
+          einl = alt.einladung; aktion = geaendert ? "termin_geaendert" : "termin_unveraendert";
+          if (!p.senden) {
+            if (geaendert) await log("hansi", aktion, { einladung_id: einl.id, slot_id: slot.id, buchung_id: buchung.id }, { namen: namenKurz(leute), wann: wann(slot.beginn, slot.ende) });
+            return json({ ok: true, verknuepft: true, gesendet: false });
+          }
+        } else {
+          if (!p.senden) return json({ ok: true, verknuepft: false, gesendet: false });
+          if (beginn <= new Date()) throw new Fehler("Der Termin liegt in der Vergangenheit – eine Bestätigung ist nicht mehr nötig.");
+          ({ data: slot } = await db.from("kc_termin_slots").insert({ beginn: beginn.toISOString(), ende: ende.toISOString(), besuchsart: art, plaetze: pids.length, herkunft: "direkt", ist_test: p.test === true }).select().single());
+          ({ data: einl } = await db.from("kc_termin_einladungen").insert({ person_ids: pids, token_hash: await sha256(zufall()), gueltig_bis: beginn.toISOString(), status: "bestaetigt", beantwortet_am: jetzt(), ist_test: p.test === true }).select().single());
+          const r = await db.from("kc_termin_buchungen").insert({ slot_id: slot.id, einladung_id: einl.id, personen: pids.length, besuchsart: art, status: "bestaetigt", entschieden_am: jetzt(), besuch_id: bes.besuch_id }).select().single();
+          if (r.error) throw new Fehler(r.error.message, 500);
+          buchung = r.data; aktion = "termin_direkt_bestaetigt";
+        }
+        const v = await bestaetigungSenden(einl, leute, slot, buchung);
+        if (v.some((x) => x.mail)) await db.from("kc_termin_buchungen").update({ bestaetigung_gesendet_am: jetzt() }).eq("id", buchung.id);
+        await log("hansi", aktion, { einladung_id: einl.id, slot_id: slot.id, buchung_id: buchung.id }, { namen: namenKurz(leute), wann: wann(slot.beginn, slot.ende), versand: versandText(v), besuch: bes.besuch_id });
+        return json({ ok: true, verknuepft: true, gesendet: true, versand: v });
       }
 
       case "t_kalender_schluessel": {

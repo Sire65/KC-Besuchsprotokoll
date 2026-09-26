@@ -20,6 +20,17 @@
 7. **Google-Kalender**: Google-Apps-Skript in Hansis Konto (`google/KalenderAbgleich.gs`) gleicht alle 5 Minuten ab.
    Farben: grau geplant, gelb vorgemerkt, grün gebucht, orange Vorschlag, rot abgesagt. Einrichtung: `google/ANLEITUNG.md`.
 
+## Mündlich abgesprochene Termine (ab 1.3.0)
+
+1. Im Besuch „📅 Geplant“ + „📅 Terminbestätigung per Push + Mail senden“ (oder Reiter Termine → „➕ Abgesprochenen Termin eintragen“).
+2. Beim Speichern ruft die App `t_besuch_termin` auf: Termin (`herkunft = 'direkt'`, Plätze = Personenzahl), Einladung (gleich `bestaetigt`) und Buchung mit `besuch_id` werden angelegt, die Bestätigung geht per Push + Mail mit .ics raus, der Google-Kalender zeigt „Gebucht“.
+3. Datum/Uhrzeit/Ort am geplanten Besuch ändern → beim Speichern wird der Termin nachgezogen; mit Häkchen „Geänderten Termin erneut bestätigen“ geht eine neue Bestätigung raus.
+4. Auch Termine aus Einladungen legen beim Bestätigen automatisch einen geplanten Besuch an (Mitglied, Datum, Zeit, Ort, Anwesende).
+5. „📝 Protokoll öffnen“ im Reiter Termine und im Google-Kalender (`…/#besuch=B-…`) öffnet den vorausgefüllten Besuch.
+6. Nach dem Besuch: Häkchen „Geplant“ entfernen, Papierprotokoll fotografieren, „✨ Foto auswerten“ – das Erkannte wird sofort in `kc_besuche` gespeichert (ohne Versand), danach „Speichern & senden“ für die Zusammenfassung.
+   Voraussetzung: Secret `ANTHROPIC_API_KEY` für die Edge Function `kc-besuche` (kostenpflichtig pro Foto).
+7. Termin abgesagt / Einladung zurückgezogen → ein noch leerer geplanter Besuch wird entfernt; ausgefüllte Besuche bleiben.
+
 ## Bausteine
 
 | Teil | Ort |

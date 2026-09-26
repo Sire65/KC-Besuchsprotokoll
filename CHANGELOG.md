@@ -7,6 +7,14 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.3.0 – 26.09.2026
+- Mündlich abgesprochener Termin: im Besuch „Geplant“ + „📅 Terminbestätigung per Push + Mail senden“ → bestätigter Termin (Herkunft `direkt`), Mail mit .ics, Google-Kalender „Gebucht“
+- Reiter Termine: Knopf „➕ Abgesprochenen Termin eintragen“
+- Jeder bestätigte Termin (auch aus Einladungen) legt automatisch einen geplanten Besuch mit Mitglied, Datum, Zeit und Ort an; „📝 Protokoll öffnen“ im Termin und im Google-Kalender (`#besuch=B-…`)
+- Datum/Uhrzeit eines geplanten Besuchs ändern → Termin wird nachgezogen, auf Wunsch erneut bestätigt
+- Termin abgesagt / zurückgezogen → noch leerer geplanter Besuch wird entfernt
+- „Foto auswerten“ speichert das Erkannte sofort in der Datenbank (ohne Versand); „Speichern & senden“ schickt danach die Zusammenfassung
+
 ## 1.2.1 – 26.09.2026
 - Häkchen „📅 Geplant“ im Besuch (Status `geplant`): für die Vorplanung, zählt nicht in Stunden/km/Anzahl, verschickt nichts
 - Wird automatisch gesetzt, wenn das Datum in der Zukunft liegt (abwählbar); „Besuch eintragen“ aus einem künftigen Termin legt ihn als geplant an
