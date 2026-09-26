@@ -123,13 +123,13 @@ const versandBereit = (b: any) => b.zusammenfassung_senden && b.status === "fert
 
 // ---------- Zusammenfassung per E-Mail über den KC Communicator (ab 26.09.2026) ----------
 // Früher verschickte die Outlook-Automatik am PC die Mail (versand_offen/mail_erledigt – bleibt als Rückfall bestehen).
-// Jetzt geht sie direkt über Supabase (Brevo, gleicher Absender) und als Kopie – wie BCC – an Hansi.
+// Jetzt geht sie direkt über Supabase (Brevo, gleicher Absender), mit echtem BCC an Hansi (KC-COMM-CCBCC im Communicator).
 const HANSI = "KC-P-002";
-async function router(eventKey: string, personIds: string[], variables: Record<string, unknown>, correlationId: string) {
+async function router(eventKey: string, personIds: string[], variables: Record<string, unknown>, correlationId: string, bcc?: string[]) {
   const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/kc-communication-router`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`, apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
-    body: JSON.stringify({ sourceProgram: "kc-besuche", eventKey, recipients: personIds.map((personId) => ({ personId })), variables, correlationId }),
+    body: JSON.stringify({ sourceProgram: "kc-besuche", eventKey, recipients: personIds.map((personId) => ({ personId })), bcc: bcc?.map((personId) => ({ personId })), variables, correlationId }),
   });
   const out = await r.json().catch(() => ({}));
   return (Array.isArray(out?.results) ? out.results : []).map((x: any) => ({
@@ -157,15 +157,11 @@ async function mailSenden(b: any): Promise<string[]> {
   const text = mailKlartext(m);
   const erg = await router("besuch_zusammenfassung", mitMail.map((l) => l.person_id), {
     betreff: m.betreff, text, titel: "Köcheclub Werne", kurz: m.betreff,
-  }, `besuch-mail:${b.besuch_id}`);
+  }, `besuch-mail:${b.besuch_id}`, [HANSI]);
   const ok = erg.filter((x: any) => x.mail);
   const adressen = mitMail.filter((l) => ok.some((x: any) => x.personId === l.person_id)).map((l) => l.email);
   if (ok.length) {
     await db.from("kc_besuche").update({ mail_gesendet_am: new Date().toISOString(), mail_empfaenger: adressen.join(", ") }).eq("besuch_id", b.besuch_id);
-    // Kopie an Hansi (nur E-Mail)
-    await router("besuch_kopie_hansi", [HANSI], {
-      betreff: m.betreff, text: `[Kopie für dich – diese Mail ging an ${adressen.join(", ")}]\n\n${text}`, titel: "Köcheclub Werne", kurz: m.betreff,
-    }, `besuch-mail:${b.besuch_id}:kopie`).catch(() => []);
   }
   // Ohne Erfolg bleibt mail_gesendet_am leer → die Outlook-Automatik am PC kann als Rückfall senden
   return erg.map((x: any) => `${x.name}: ${x.mail ? "Mail gesendet" : "Mail-Fehler"}`);
