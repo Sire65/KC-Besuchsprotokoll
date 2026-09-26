@@ -1,8 +1,8 @@
 {
-  "version": "1.3.2",
+  "version": "1.3.3",
   "datum": "2026-09-26",
   "neu": [
-    "Zusammenfassung nach dem Besuch geht jetzt direkt per E-Mail raus – nicht mehr über den PC",
-    "Von jeder Mail an Mitglieder bekommst du eine Kopie"
+    "Mails an Mitglieder bekommst du jetzt als echtes BCC – dieselbe Mail, das Mitglied sieht davon nichts",
+    "Zusammenfassung nach dem Besuch geht weiter direkt per E-Mail raus"
   ]
 }

@@ -7,6 +7,12 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.3.3 – 26.09.2026 (Server: kc-besuche v8, kc-termine v6, KC Communicator Router v17 / Dispatch v16)
+- Echtes BCC statt eigener Kopie-Mail: Einladung, Bestätigung, Absage, Erinnerung und Besuchs-Zusammenfassung gehen mit BCC an Hansi (Feature KC-COMM-CCBCC im KC Communicator, Brevo/Mailjet/Resend)
+- Ist Hansi selbst Empfänger, entfällt die BCC (keine doppelte Mail)
+- „Kopie nachsenden“ (`t_kopie_nachsenden`) für ältere Mails bleibt; zählt BCC-Adressen nicht als Empfänger
+- App-Texte: „Mail (BCC an dich)“
+
 ## 1.3.2 – 26.09.2026 (Server: kc-besuche v7)
 - Zusammenfassung nach dem Besuch geht jetzt direkt über Supabase (KC Communicator, Brevo, gleicher Absender) an das Mitglied – ohne Outlook-PC (Ereignis `besuch_zusammenfassung`, nur E-Mail)
 - Kopie jeder Zusammenfassung an Hansi mit Hinweis, an wen sie ging (Ereignis `besuch_kopie_hansi`)

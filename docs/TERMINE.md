@@ -44,7 +44,8 @@
 
 Die Funktion `kc-besuche` (Besuchsprotokoll) behält alle bisherigen Aktionen. Ab 1.3.2 (v7) verschickt sie die
 Zusammenfassung nach dem Besuch selbst über den Communicator (Ereignisse `besuch_zusammenfassung` an das Mitglied und
-`besuch_kopie_hansi` als Kopie an Hansi, nur E-Mail, Migration `20260926_kc_besuche_zusammenfassung_mail.sql`).
+bis 1.3.2 `besuch_kopie_hansi` als Kopie an Hansi, nur E-Mail, Migration `20260926_kc_besuche_zusammenfassung_mail.sql`).
+Ab 1.3.3 (v8) geht die Zusammenfassung stattdessen mit echtem BCC an Hansi.
 Schlägt der Versand fehl, bleibt der Besuch in `versand_offen` für die Outlook-Automatik (Rückfallebene).
 
 ### Tabellen
@@ -61,6 +62,9 @@ Schlägt der Versand fehl, bleibt der Besuch in `versand_offen` für die Outlook
 ### Versand
 Über `kc-communication-router`, Quellprogramm `kc-besuche`, Ereignisse `termin_einladung`, `termin_bestaetigung`,
 `termin_info_mitglied`, `termin_meldung_hansi`, Vorlage `kc_besuche_termin_v1`. Kostenfrei (Brevo/Web-Push, Zero-Cost-Sperre des Communicators bleibt aktiv).
+Ab 1.3.3 geht jede Mail an Mitglieder (und die Besuchs-Zusammenfassung) mit echtem **BCC an Hansi** (Router-Feld `bcc`,
+Feature KC-COMM-CCBCC im KC Communicator). Die früheren Kopie-Ereignisse `termin_kopie_hansi` (nur noch für
+„Kopie nachsenden“ älterer Mails) und `besuch_kopie_hansi` (nicht mehr benutzt) bleiben als Regeln bestehen.
 
 ## Tests
 Testdaten (`ist_test = true`) versenden nie etwas und sind für echte Mitglieder unsichtbar.
