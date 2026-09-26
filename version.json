@@ -1,10 +1,11 @@
 {
-  "version": "1.1.0",
-  "datum": "2026-09-25",
+  "version": "1.2.0",
+  "datum": "2026-09-26",
   "neu": [
-    "Neu: „Mitglied kommt zu mir“ – nur Zeit, keine km",
-    "Neu: Zusammenfassung ans Mitglied per Push und E-Mail",
-    "Neu: Foto vom Papierprotokoll auswerten – Felder werden automatisch ausgefüllt",
-    "Neu: Knopf „Auf Startbildschirm“"
+    "Neu: Reiter „Termine“ – Termine anbieten, Mitglieder einladen, freigeben",
+    "Mitglieder wählen per Link aus der Mail (bis 3 Personen je Termin) oder schicken 2 Gegenvorschläge",
+    "Du bekommst Push und Mail bei jeder Antwort, das Mitglied nach deiner Freigabe die Bestätigung mit Kalenderdatei",
+    "Antwortfrist 3 Tage, Erinnerung am Vortag, alles im Protokoll",
+    "Automatisch in deinem Google-Kalender: geplant, vorgemerkt, gebucht, abgesagt"
   ]
 }
