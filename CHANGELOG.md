@@ -7,6 +7,11 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.3.1 – 26.09.2026
+- Geplanter Besuch kompakt: Gesprächspunkte und Notizen ausgeblendet, Terminbestätigung direkt unter Datum/Uhrzeit
+- Foto-Bereich per Schalter `FOTO_AKTIV` ausgeblendet, bis `ANTHROPIC_API_KEY` für `kc-besuche` gesetzt ist
+- Echter Versandtest der Terminbestätigung: Brevo-Mail mit .ics-Anhang und Push zugestellt
+
 ## 1.3.0 – 26.09.2026
 - Mündlich abgesprochener Termin: im Besuch „Geplant“ + „📅 Terminbestätigung per Push + Mail senden“ → bestätigter Termin (Herkunft `direkt`), Mail mit .ics, Google-Kalender „Gebucht“
 - Reiter Termine: Knopf „➕ Abgesprochenen Termin eintragen“
