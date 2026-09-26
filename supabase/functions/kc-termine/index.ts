@@ -129,12 +129,26 @@ async function senden(eventKey: string, personIds: string[], vars: Record<string
   });
   const out = await r.json().catch(() => ({}));
   if (!Array.isArray(out?.results)) return [{ name: "Versand", mail: false, push: false, hinweis: String(out?.error || out?.code || `HTTP ${r.status}`) }];
-  return out.results.map((x: any) => {
+  const ergebnis: Versand[] = out.results.map((x: any) => {
     const ok = (k: string) => (x.attempts ?? []).some((a: any) => a.channel === k && ["sent", "deduplicated"].includes(a.result));
     const fehl = (x.attempts ?? []).filter((a: any) => !["sent", "deduplicated"].includes(a.result)).map((a: any) => `${a.channel}: ${a.reason || a.result}`);
     return { name: x.displayName || x.personId, mail: ok("email"), push: ok("push"), hinweis: fehl.join(", ") || undefined };
   });
+  // Jede Mail an Mitglieder geht als Kopie auch an Hansi (wie BCC – das Mitglied sieht davon nichts)
+  if (MITGLIED_EREIGNISSE.includes(eventKey) && !personIds.includes(HANSI)) {
+    const an = ergebnis.filter((x) => x.mail).map((x) => x.name);
+    await fetch(`${SUPA}/functions/v1/kc-communication-router`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE}`, apikey: SERVICE },
+      body: JSON.stringify({
+        sourceProgram: "kc-besuche", eventKey: "termin_kopie_hansi", recipients: [{ personId: HANSI }], correlationId: `${korrelation}:kopie`,
+        variables: { ...vars, text: `[Kopie für dich – diese Mail ging an ${an.length ? aufzaehlen(an) : "niemanden (keine Mail zugestellt)"}]\n\n${vars.text ?? ""}` },
+      }),
+    }).catch(() => {});
+  }
+  return ergebnis;
 }
+const MITGLIED_EREIGNISSE = ["termin_einladung", "termin_bestaetigung", "termin_info_mitglied"];
 const versandText = (v: Versand[]) => v.map((x) => `${x.name}: ${[x.mail && "Mail", x.push && "Push"].filter(Boolean).join(" + ") || "nicht zugestellt"}${x.hinweis ? ` (${x.hinweis})` : ""}`).join("; ");
 
 async function meldeHansi(betreff: string, text: string, kurz: string, test = false) {
@@ -831,6 +845,19 @@ Deno.serve(async (req) => {
         if (v.some((x) => x.mail)) await db.from("kc_termin_buchungen").update({ bestaetigung_gesendet_am: jetzt() }).eq("id", buchung.id);
         await log("hansi", aktion, { einladung_id: einl.id, slot_id: slot.id, buchung_id: buchung.id }, { namen: namenKurz(leute), wann: wann(slot.beginn, slot.ende), versand: versandText(v), besuch: bes.besuch_id });
         return json({ ok: true, verknuepft: true, gesendet: true, versand: v });
+      }
+
+      // Kopie einer schon verschickten Mitglieder-Mail nachträglich an Hansi (z. B. Mails vor Einführung der Kopie)
+      case "t_kopie_nachsenden": {
+        const { data: r } = await db.from("kc_communication_requests").select("id,channel,status,source_program,variables,recipient_refs,audit_meta")
+          .eq("id", p.request_id).maybeSingle();
+        if (!r || r.source_program !== "kc-besuche" || r.channel !== "email" || !MITGLIED_EREIGNISSE.includes(r.audit_meta?.eventKey)) throw new Fehler("Mail nicht gefunden.", 404);
+        const an = (r.recipient_refs ?? []).map((x: any) => x.email).filter(Boolean).join(", ");
+        const v = await senden("termin_kopie_hansi", [HANSI], {
+          ...r.variables, text: `[Kopie für dich – diese Mail ging an ${an || "das Mitglied"}]\n\n${r.variables?.text ?? ""}`,
+        }, `kopie-nachgesendet:${r.id}`);
+        await log("hansi", "kopie_nachgesendet", {}, { mail: r.variables?.subject, an, versand: versandText(v) });
+        return json({ ok: true, versand: v });
       }
 
       case "t_kalender_schluessel": {

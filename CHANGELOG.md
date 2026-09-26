@@ -7,6 +7,10 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## Server 26.09.2026 (kc-termine v5, App unverändert 1.3.1)
+- Jede Mail an Mitglieder (Einladung, Bestätigung, Absage, Erinnerung) geht als Kopie – wie BCC – an Hansi: gleicher Betreff, gleicher Anhang, oben der Hinweis, an wen sie ging (Ereignis `termin_kopie_hansi`, nur E-Mail)
+- Aktion `t_kopie_nachsenden` für Mails von vor der Umstellung
+
 ## 1.3.1 – 26.09.2026
 - Geplanter Besuch kompakt: Gesprächspunkte und Notizen ausgeblendet, Terminbestätigung direkt unter Datum/Uhrzeit
 - Foto-Bereich per Schalter `FOTO_AKTIV` ausgeblendet, bis `ANTHROPIC_API_KEY` für `kc-besuche` gesetzt ist
