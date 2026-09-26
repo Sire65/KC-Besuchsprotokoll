@@ -42,7 +42,10 @@
 | Google-Skript + Anleitung | `google/` |
 | Funktionstest (42 Prüfungen) | `tests/termine-api.test.mjs` |
 
-Die bestehende Funktion `kc-besuche` (Besuchsprotokoll) wurde **nicht** verändert.
+Die Funktion `kc-besuche` (Besuchsprotokoll) behält alle bisherigen Aktionen. Ab 1.3.2 (v7) verschickt sie die
+Zusammenfassung nach dem Besuch selbst über den Communicator (Ereignisse `besuch_zusammenfassung` an das Mitglied und
+`besuch_kopie_hansi` als Kopie an Hansi, nur E-Mail, Migration `20260926_kc_besuche_zusammenfassung_mail.sql`).
+Schlägt der Versand fehl, bleibt der Besuch in `versand_offen` für die Outlook-Automatik (Rückfallebene).
 
 ### Tabellen
 `kc_termin_slots`, `kc_termin_einladungen`, `kc_termin_buchungen`, `kc_termin_vorschlaege`,

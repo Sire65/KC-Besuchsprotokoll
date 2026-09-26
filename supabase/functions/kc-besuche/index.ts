@@ -121,6 +121,56 @@ async function pushSenden(b: any) {
 }
 const versandBereit = (b: any) => b.zusammenfassung_senden && b.status === "fertig";
 
+// ---------- Zusammenfassung per E-Mail über den KC Communicator (ab 26.09.2026) ----------
+// Früher verschickte die Outlook-Automatik am PC die Mail (versand_offen/mail_erledigt – bleibt als Rückfall bestehen).
+// Jetzt geht sie direkt über Supabase (Brevo, gleicher Absender) und als Kopie – wie BCC – an Hansi.
+const HANSI = "KC-P-002";
+async function router(eventKey: string, personIds: string[], variables: Record<string, unknown>, correlationId: string) {
+  const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/kc-communication-router`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`, apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+    body: JSON.stringify({ sourceProgram: "kc-besuche", eventKey, recipients: personIds.map((personId) => ({ personId })), variables, correlationId }),
+  });
+  const out = await r.json().catch(() => ({}));
+  return (Array.isArray(out?.results) ? out.results : []).map((x: any) => ({
+    personId: x.personId, name: x.displayName || x.personId,
+    mail: (x.attempts ?? []).some((a: any) => a.channel === "email" && ["sent", "deduplicated"].includes(a.result)),
+  }));
+}
+function mailKlartext(m: ReturnType<typeof mailText>) {
+  return [
+    m.anrede, "",
+    ...m.absaetze.flatMap((a) => [a, ""]),
+    ...(m.punkte.length ? ["Besprochen:", ...m.punkte.map((p) => `• ${p.titel}: ${p.wert}`), ""] : []),
+    ...(m.vereinbarungen ? ["Vereinbart / nächste Schritte:", m.vereinbarungen, ""] : []),
+    "Viele Grüße", "Hansi", "Köcheclub Werne",
+  ].join("\n");
+}
+async function mailSenden(b: any): Promise<string[]> {
+  const leute = await empfaenger(b);
+  const mitMail = leute.filter((l) => l.email);
+  if (!mitMail.length) {
+    await db.from("kc_besuche").update({ mail_gesendet_am: new Date().toISOString(), mail_empfaenger: "(keine E-Mail-Adresse)" }).eq("besuch_id", b.besuch_id);
+    return leute.map((l) => `${l.vorname}: keine E-Mail-Adresse`);
+  }
+  const m = mailText(b, leute, await anredenLaden(leute.map((l) => l.person_id)));
+  const text = mailKlartext(m);
+  const erg = await router("besuch_zusammenfassung", mitMail.map((l) => l.person_id), {
+    betreff: m.betreff, text, titel: "Köcheclub Werne", kurz: m.betreff,
+  }, `besuch-mail:${b.besuch_id}`);
+  const ok = erg.filter((x: any) => x.mail);
+  const adressen = mitMail.filter((l) => ok.some((x: any) => x.personId === l.person_id)).map((l) => l.email);
+  if (ok.length) {
+    await db.from("kc_besuche").update({ mail_gesendet_am: new Date().toISOString(), mail_empfaenger: adressen.join(", ") }).eq("besuch_id", b.besuch_id);
+    // Kopie an Hansi (nur E-Mail)
+    await router("besuch_kopie_hansi", [HANSI], {
+      betreff: m.betreff, text: `[Kopie für dich – diese Mail ging an ${adressen.join(", ")}]\n\n${text}`, titel: "Köcheclub Werne", kurz: m.betreff,
+    }, `besuch-mail:${b.besuch_id}:kopie`).catch(() => []);
+  }
+  // Ohne Erfolg bleibt mail_gesendet_am leer → die Outlook-Automatik am PC kann als Rückfall senden
+  return erg.map((x: any) => `${x.name}: ${x.mail ? "Mail gesendet" : "Mail-Fehler"}`);
+}
+
 // ---------- Foto vom Papierprotokoll auslesen (Claude) ----------
 const ja_nein_spaeter = { type: "string", enum: ["", "ja", "nein", "spaeter"] };
 const PROTOKOLL_SCHEMA = {
@@ -252,10 +302,9 @@ Deno.serve(async (req) => {
         let { data, error } = await q.select().single();
         if (error) return json({ error: error.message }, 400);
         let versand: string[] | undefined;
-        if (versandBereit(data) && !data.push_gesendet_am) {
-          versand = await pushSenden(data);
-          ({ data } = await db.from("kc_besuche").select("*").eq("besuch_id", data.besuch_id).single());
-        }
+        if (versandBereit(data) && !data.push_gesendet_am) versand = await pushSenden(data);
+        if (versandBereit(data) && !data.mail_gesendet_am) versand = [...(versand ?? []), ...await mailSenden(data)];
+        if (versand) ({ data } = await db.from("kc_besuche").select("*").eq("besuch_id", data.besuch_id).single());
         return json({ besuch: data, versand });
       }
       // Für die Outlook-Automatik auf Hansis PC: offene Mails holen (und verpasste Pushes nachholen)

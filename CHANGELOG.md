@@ -7,6 +7,13 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.3.2 – 26.09.2026 (Server: kc-besuche v7)
+- Zusammenfassung nach dem Besuch geht jetzt direkt über Supabase (KC Communicator, Brevo, gleicher Absender) an das Mitglied – ohne Outlook-PC (Ereignis `besuch_zusammenfassung`, nur E-Mail)
+- Kopie jeder Zusammenfassung an Hansi mit Hinweis, an wen sie ging (Ereignis `besuch_kopie_hansi`)
+- `mail_gesendet_am`/`mail_empfaenger` werden bei Erfolg gesetzt; nur bei Fehler bleibt der Besuch für die Outlook-Automatik offen (Rückfallebene)
+- App meldet beim Speichern „Push/Mail gesendet (Kopie an dich)“ bzw. Mail-Fehler
+- Echter Versandtest: Push, Zusammenfassung und Kopie zugestellt
+
 ## Server 26.09.2026 (kc-termine v5, App unverändert 1.3.1)
 - Jede Mail an Mitglieder (Einladung, Bestätigung, Absage, Erinnerung) geht als Kopie – wie BCC – an Hansi: gleicher Betreff, gleicher Anhang, oben der Hinweis, an wen sie ging (Ereignis `termin_kopie_hansi`, nur E-Mail)
 - Aktion `t_kopie_nachsenden` für Mails von vor der Umstellung
