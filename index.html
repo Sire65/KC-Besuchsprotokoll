@@ -196,9 +196,15 @@
   </div>
 
   <div class="karte" id="versandKarte">
-    <h2>Zusammenfassung ans Mitglied</h2>
-    <label class="haken"><input type="checkbox" id="senden" checked onchange="versandZeigen()"> <span id="sendenText">Nach dem Speichern schicken</span></label>
-    <p class="hinweis" id="versandHinweis"></p>
+    <h2 id="versandTitel">Zusammenfassung ans Mitglied</h2>
+    <div id="terminKarte" class="versteckt">
+      <label class="haken"><input type="checkbox" id="terminSenden" onchange="versandZeigen()"> <span id="terminSendenText">📅 Terminbestätigung per Push + Mail senden</span></label>
+      <p class="hinweis" id="terminHinweis"></p>
+    </div>
+    <div id="zusammenfassungTeil">
+      <label class="haken"><input type="checkbox" id="senden" checked onchange="versandZeigen()"> <span id="sendenText">Nach dem Speichern schicken</span></label>
+      <p class="hinweis" id="versandHinweis"></p>
+    </div>
   </div>
 </main>
 
@@ -216,6 +222,12 @@
 </main>
 
 <main id="ansichtTermine" class="versteckt">
+  <div class="karte">
+    <h2>Mündlich abgesprochen?</h2>
+    <p class="hinweis" style="margin-top:0">Termin direkt eintragen – das Mitglied bekommt die Bestätigung per Push und Mail (mit Kalenderdatei), der Termin steht im Google-Kalender, und zum Besuch ist das Protokoll schon vorausgefüllt.</p>
+    <button class="knopf haupt" onclick="abgesprochenNeu()">➕ Abgesprochenen Termin eintragen</button>
+  </div>
+
   <div class="karte" id="wartetKarte">
     <h2>Wartet auf dich</h2>
     <div id="wartet"><p class="hinweis">Wird geladen …</p></div>
@@ -287,7 +299,7 @@
 </div>
 
 <script>
-const APP_VERSION = "1.2.1"; // gleich halten mit sw.js und version.json (siehe CHANGELOG.md)
+const APP_VERSION = "1.3.0"; // gleich halten mit sw.js und version.json (siehe CHANGELOG.md)
 const API = "https://ptblnpiroqftcvlsrhac.supabase.co/functions/v1/kc-besuche";
 const ENTWURF = "kc_besuch_entwurf";
 
@@ -350,8 +362,14 @@ async function laden() {
     sel.innerHTML = '<option value="">– antippen –</option>' + mitglieder.map((m) => `<option value="${m.person_id}">${esc(m.display_name)}</option>`).join("");
     jahreFuellen(); liste();
   } catch (e) { melde(e.message, true); }
-  if (location.hash === "#termine") zeige("termine"); else termineLaden(true);
+  if (location.hash === "#termine") zeige("termine"); else await termineLaden(true);
+  hashOeffnen();
 }
+function hashOeffnen() {
+  const m = location.hash.match(/^#besuch=([A-Za-z0-9-]+)$/);
+  if (m) protokollOeffnen(m[1]);
+}
+window.addEventListener("hashchange", hashOeffnen);
 
 // ---------- Formular ----------
 function fragenBauen() {
@@ -430,7 +448,26 @@ function artZeigen() {
 }
 
 // Geplant (ab 1.2.1): Vorplanung eines Besuchs – zählt nicht in Stunden/km, verschickt nichts
-function geplantSetzen(an) { geplant = !!an; geplantZeigen(); entwurfSichern(); }
+function geplantSetzen(an) {
+  geplant = !!an;
+  if (geplant) $("terminSenden").checked = !terminZumBesuch(bearbeiteId);
+  geplantZeigen(); entwurfSichern();
+}
+// Bestätigter Termin, der zu diesem Besuch gehört (aus dem Reiter Termine)
+function terminZumBesuch(bid) {
+  if (!bid || !T) return null;
+  const b = T.buchungen.find((x) => x.besuch_id === bid && x.status === "bestaetigt");
+  return b ? { buchung: b, slot: T.slots.find((s) => s.id === b.slot_id) } : null;
+}
+function abgesprochenNeu() {
+  neuesFormular();
+  const d = new Date(Date.now() + 86400000);
+  $("datum").value = new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  $("zeitVon").value = "15:00"; $("zeitBis").value = "16:30";
+  geplantSetzen(true);
+  zeige("neu"); window.scrollTo(0, 0);
+  melde("Mitglied, Datum und Uhrzeit eintragen – beim Speichern geht die Terminbestätigung raus.");
+}
 function geplantZeigen() {
   $("geplant").checked = geplant;
   $("geplantHinweis").classList.toggle("versteckt", !geplant);
@@ -441,6 +478,19 @@ function datumGeaendert() { geplantSetzen($("datum").value > heute()); }
 function versandZeigen() {
   const namen = gewaehltePersonen.map((pid) => (mitglieder.find((x) => x.person_id === pid) || {}).display_name || pid);
   const box = $("senden");
+  const tz = terminZumBesuch(bearbeiteId);
+  $("terminKarte").classList.toggle("versteckt", !geplant);
+  $("zusammenfassungTeil").classList.toggle("versteckt", geplant && !schonGesendet);
+  $("versandTitel").textContent = geplant ? "Terminbestätigung ans Mitglied" : "Zusammenfassung ans Mitglied";
+  if (geplant) {
+    const tb = $("terminSenden");
+    tb.disabled = !namen.length;
+    $("terminSendenText").textContent = tz ? "📅 Geänderten Termin erneut bestätigen" : "📅 Terminbestätigung per Push + Mail senden";
+    $("terminHinweis").textContent = !namen.length ? "Erst oben ein Mitglied auswählen."
+      : tz ? `Schon bestätigt${tz.buchung.bestaetigung_gesendet_am ? " am " + zeitDe(tz.buchung.bestaetigung_gesendet_am) : ""}${tz.slot ? " für " + twann(tz.slot.beginn, tz.slot.ende) : ""}. Änderungen an Datum/Uhrzeit werden beim Speichern übernommen.`
+      : tb.checked ? `Geht an ${namen.join(", ")}: Push + Mail mit Kalenderdatei, Eintrag im Google-Kalender. Die Zusammenfassung kommt erst nach dem Besuch.`
+      : "Es wird nichts verschickt – der Besuch ist nur für dich vorgemerkt.";
+  }
   if (geplant && !schonGesendet) {
     box.disabled = true;
     $("sendenText").textContent = "Erst nach dem Besuch";
@@ -459,12 +509,12 @@ function versandZeigen() {
     $("versandHinweis").textContent = box.checked ? `Geht an ${namen.join(", ")}: Push sofort, E-Mail kurz danach vom PC.` : "Es wird nichts verschickt.";
   }
   const senden = box.checked && !box.disabled && !schonGesendet;
-  $("speichernKnopf").textContent = geplant ? "📅 Als geplant speichern" : senden ? "Speichern & senden" : (bearbeiteId ? "Änderungen speichern" : "Speichern");
+  $("speichernKnopf").textContent = geplant ? ($("terminSenden").checked && !$("terminSenden").disabled ? "📅 Speichern & Termin bestätigen" : "📅 Als geplant speichern") : senden ? "Speichern & senden" : (bearbeiteId ? "Änderungen speichern" : "Speichern");
 }
 
 function neuesFormular() {
   bearbeiteId = null; bearbeiteFotos = []; neueFotos = []; antworten = {}; gewaehltePersonen = [];
-  art = "beim_mitglied"; schonGesendet = null; geplant = false; $("senden").checked = true; $("unsicherHinweis").classList.add("versteckt");
+  art = "beim_mitglied"; schonGesendet = null; geplant = false; $("senden").checked = true; $("terminSenden").checked = false; $("unsicherHinweis").classList.add("versteckt");
   TEXTFELDER.forEach((id) => { const el = $(id); if (el) el.value = ""; });
   $("datum").value = heute();
   const d = new Date(); d.setMinutes(Math.floor(d.getMinutes() / 15) * 15);
@@ -534,9 +584,28 @@ async function speichern() {
   d.status = geplant && !hatFotos ? "geplant" : hatFotos && nichtsBeantwortet ? "foto_auswerten" : "fertig";
 
   const k = $("speichernKnopf"); k.disabled = true; k.textContent = "Wird gespeichert …";
+  const terminSenden = geplant && $("terminSenden").checked && !$("terminSenden").disabled;
+  const warVerknuepft = !!terminZumBesuch(bearbeiteId);
   try {
     const { besuch, versand } = await speichernIntern(d, k);
     let text = `Gespeichert – ${besuch.besuch_id}`;
+    if (d.status === "geplant" && (terminSenden || warVerknuepft)) {
+      k.textContent = terminSenden ? "Terminbestätigung wird gesendet …" : "Termin wird abgeglichen …";
+      try {
+        const r = await tapi("t_besuch_termin", { besuch_id: besuch.besuch_id, senden: terminSenden });
+        await termineLaden(true);
+        if (r.gesendet) {
+          const ohne = (r.versand || []).filter((x) => !x.mail);
+          melde(ohne.length ? `📅 Gespeichert – keine Mail an ${ohne.map((x) => x.name).join(", ")}${ohne[0].hinweis ? " (" + ohne[0].hinweis + ")" : ""}` : `📅 Gespeichert und Termin bestätigt – ${besuch.besuch_id}`, !!ohne.length);
+          neuesFormular(); jahreFuellen(); liste(); window.scrollTo(0, 0);
+          return;
+        }
+      } catch (e) {
+        melde(`Besuch gespeichert (${besuch.besuch_id}), aber Terminbestätigung fehlgeschlagen: ${e.message}`, true);
+        neuesFormular(); jahreFuellen(); liste(); window.scrollTo(0, 0);
+        return;
+      }
+    }
     if (d.status === "geplant") text = `📅 Als geplant gespeichert – ${besuch.besuch_id}`;
     else if (d.status === "foto_auswerten") text += " (Foto noch auswerten)";
     else if (versand) text += versand.some((v) => v.includes("Push gesendet")) ? " · Push verschickt, Mail folgt" : " · Mail folgt vom PC";
@@ -572,7 +641,14 @@ async function fotoAuswerten() {
     $("unsicherHinweis").textContent = v.unsicher ? "Bitte prüfen: " + v.unsicher : "";
     $("unsicherHinweis").classList.toggle("versteckt", !v.unsicher);
     artZeigen(); wahlZeigen(); summeZeigen(); versandZeigen();
-    melde("Protokoll ausgefüllt – bitte kurz prüfen und dann senden.");
+    // Erkanntes sofort in die Datenbank – noch ohne Versand ans Mitglied
+    k.textContent = "Erkanntes wird gespeichert …";
+    const d2 = { ...formularDaten(), status: "fertig", zusammenfassung_senden: false };
+    if (!pruefen(d2)) return;
+    const { besuch: gesp } = await speichernIntern(d2, k);
+    bearbeiteId = gesp.besuch_id; bearbeiteFotos = gesp.fotos || []; fotosZeigen(); jahreFuellen(); liste();
+    $("bearbeitenText").textContent = "Aus dem Foto erkannt und gespeichert – bitte prüfen (" + bearbeiteId + ")";
+    melde("Erkannt und gespeichert – bitte prüfen. „Speichern & senden“ schickt die Zusammenfassung ans Mitglied.");
     window.scrollTo(0, 0);
   } catch (e) { melde(e.message, true); }
   finally { k.disabled = false; k.textContent = "✨ Foto auswerten – Protokoll ausfüllen"; }
@@ -649,6 +725,7 @@ function liste() {
       <div class="oben"><b>${esc(b.mitglied)}</b><span class="id">${b.besuch_id}</span></div>
       <div class="unten">${datumDe(b.datum)}${b.zeit_von ? " · " + b.zeit_von.slice(0, 5) + (b.zeit_bis ? "–" + b.zeit_bis.slice(0, 5) : "") : ""}${b.dauer_min ? " (" + hm(b.dauer_min) + " Std.)" : ""}${b.km_gesamt != null ? " · " + fmtKm(b.km_gesamt) + " km" : ""}</div>
       ${b.status === "geplant" ? '<span class="marke blau">📅 geplant</span>' : ""}
+      ${terminZumBesuch(b.besuch_id) ? '<span class="marke gruen">✅ Termin bestätigt</span>' : ""}
       ${b.status === "foto_auswerten" ? '<span class="marke">Foto noch auswerten</span>' : ""}
       ${b.besuchsart === "bei_hansi" ? '<span class="marke blau">🏠 kam zu mir</span>' : ""}
       ${b.push_gesendet_am || b.mail_gesendet_am ? '<span class="marke gruen">✉️ verschickt</span>' : ""}
@@ -668,6 +745,7 @@ function bearbeiten(id) {
   gewaehltePersonen = b.person_ids || [];
   art = b.besuchsart || "beim_mitglied";
   geplant = b.status === "geplant";
+  $("terminSenden").checked = false;
   const gesendet = [b.push_gesendet_am && "Push " + zeitDe(b.push_gesendet_am), b.mail_gesendet_am && "Mail " + zeitDe(b.mail_gesendet_am)].filter(Boolean);
   schonGesendet = gesendet.length ? gesendet.join(" · ") : null;
   $("senden").checked = b.zusammenfassung_senden || !schonGesendet;
@@ -711,12 +789,12 @@ async function tapi(action, daten = {}) {
   return j;
 }
 async function termineLaden(still = false) {
-  try { T = await tapi("t_init"); termineZeigen(); }
+  try { T = await tapi("t_init"); termineZeigen(); if (besuche.length) liste(); versandZeigen(); }
   catch (e) { if (!still) melde(e.message, true); }
 }
 async function tAktion(knopf, fn) {
   if (knopf) knopf.disabled = true;
-  try { await fn(); await termineLaden(); }
+  try { await fn(); await Promise.all([termineLaden(), besucheNeuLaden()]); }
   catch (e) { melde(e.message, true); }
   finally { if (knopf) knopf.disabled = false; }
 }
@@ -845,7 +923,7 @@ function terminListeZeigen() {
     const art = bs[0] ? bs[0].besuchsart : (s.besuchsart === "wahl" && s.buchungen ? "bei_hansi" : s.besuchsart);
     return `<div class="eintrag"><div class="wann">${twann(s.beginn, s.ende)} ${marke}${s.ist_test ? ' <span class="marke grau">Test</span>' : ""}${s.herkunft === "gegenvorschlag" ? ' <span class="marke grau">Vorschlag</span>' : ""}</div>
       <div class="klein">${ART[art]} · ${s.belegt}/${s.plaetze} Plätze${s.status === "offen" && frei > 0 && !s.hat_hausbesuch && !vorbei ? ` · ${frei} frei` : ""}${s.notiz ? " · " + esc(s.notiz) : ""}</div>
-      ${bs.map((b) => { const e = einl(b.einladung_id); return `<div class="klein">• ${esc(e ? gruppe(e.person_ids) : "?")} – ${b.status === "bestaetigt" ? "✅ gebucht" : "⏳ wartet auf Freigabe"}${b.status === "bestaetigt" ? ` <a href="#" onclick="besuchAusTermin('${b.id}'); return false;">📝 Besuch eintragen</a>` : ""}</div>`; }).join("")}
+      ${bs.map((b) => { const e = einl(b.einladung_id); return `<div class="klein">• ${esc(e ? gruppe(e.person_ids) : "?")} – ${b.status === "bestaetigt" ? "✅ gebucht" : "⏳ wartet auf Freigabe"}${b.status === "bestaetigt" ? (b.besuch_id ? ` <a href="#" onclick="protokollOeffnen('${b.besuch_id}'); return false;">📝 Protokoll öffnen</a>` : ` <a href="#" onclick="besuchAusTermin('${b.id}'); return false;">📝 Besuch eintragen</a>`) : ""}</div>`; }).join("")}
       ${s.status === "offen" && !vorbei ? `<div class="knoepfe">${jemals
         ? `<button class="grau" onclick="terminAbsagen(this,'${s.id}',${bs.length})">Termin absagen</button>`
         : `<button class="grau" onclick="terminLoeschen(this,'${s.id}')">Löschen</button>`}</div>` : ""}</div>`;
@@ -865,6 +943,14 @@ function terminLoeschen(k, id) {
   const s = slot(id);
   if (!confirm(`Termin ${twann(s.beginn, s.ende)} löschen?`)) return;
   tAktion(k, async () => { await tapi("t_slot_loeschen", { slot_id: id }); melde("Termin gelöscht"); });
+}
+async function protokollOeffnen(id) {
+  if (!besuche.some((b) => b.besuch_id === id)) await besucheNeuLaden();
+  if (besuche.some((b) => b.besuch_id === id)) bearbeiten(id);
+  else melde(`Besuch ${id} nicht gefunden.`, true);
+}
+async function besucheNeuLaden() {
+  try { const j = await api("init"); besuche = j.besuche || besuche; jahreFuellen(); liste(); } catch {}
 }
 function besuchAusTermin(bid) {
   const b = T.buchungen.find((x) => x.id === bid), s = slot(b.slot_id), e = einl(b.einladung_id);
