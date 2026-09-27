@@ -1,6 +1,6 @@
 // KC Besuchsprotokoll – Service Worker. Seite immer zuerst aus dem Netz, nur ohne Netz aus dem Speicher.
 // VERSION muss bei jeder neuen Version mit version.json und APP_VERSION in index.html übereinstimmen.
-const VERSION = "1.3.4";
+const VERSION = "1.3.5";
 const CACHE = "kc-besuche-" + VERSION;
 const DATEIEN = ["./", "index.html", "manifest.webmanifest", "kc-kochmuetze-weiss.webp", "icon-192.png", "icon-512.png"];
 
