@@ -206,7 +206,8 @@ async function neuOeffnen(einladungId: string) {
   const token = zufall();
   const gueltig = inTagen(FRIST_TAGE);
   const { error } = await db.from("kc_termin_einladungen").update({
-    token_hash: await sha256(token), gueltig_bis: gueltig, status: "offen", ablauf_gemeldet_am: null, geaendert_am: jetzt(),
+    token_hash: await sha256(token), gueltig_bis: gueltig, status: "offen", ablauf_gemeldet_am: null,
+    geoeffnet_am: null, beantwortet_am: null, geaendert_am: jetzt(),
   }).eq("id", einladungId);
   if (error) throw new Fehler(error.message, 500);
   return { link: `${MITGLIED_SEITE}?t=${token}`, gueltig };
@@ -269,9 +270,26 @@ async function einladungSenden(e: any, leute: Person[], link: string, gueltig: s
   const betreff = anlass === "ausfall" ? "Köcheclub Werne – Termin fällt aus, bitte neu wählen"
     : anlass === "abgelehnt" ? "Köcheclub Werne – bitte einen anderen Termin wählen"
     : "Köcheclub Werne – Terminvorschläge für unser Treffen";
-  return senden(anlass === "neu" || anlass === "erneut" ? "termin_einladung" : "termin_info_mitglied", leute.map((l) => l.person_id), {
+  const v = await senden(anlass === "neu" || anlass === "erneut" ? "termin_einladung" : "termin_info_mitglied", leute.map((l) => l.person_id), {
     betreff, text, titel: "Köcheclub Werne", kurz: `Neue Terminvorschläge von Hansi – bitte bis ${frist(gueltig)} wählen.`, url: link,
   }, `termin-mitglied:${e.id}:${anlass}:${Date.now()}`, e.ist_test);
+  if (v.some((x) => x.mail)) await db.from("kc_termin_einladungen").update({ gesendet_am: jetzt() }).eq("id", e.id);
+  return v;
+}
+
+async function linkUpdateSenden(e: any, leute: Person[], link: string) {
+  const text = [
+    await anredeZeile(leute), "",
+    "der bisherige Termin-Link wurde ersetzt. Bitte verwende nur noch diesen aktuellen Link:", link, "",
+    "Der frühere Link funktioniert nicht mehr.", "",
+    "Viele Grüße", "Hansi", "Köcheclub Werne",
+  ].join("\n");
+  const v = await senden("termin_einladung", leute.map((l) => l.person_id), {
+    betreff: "Köcheclub Werne – aktueller Termin-Link", text, titel: "Köcheclub Werne",
+    kurz: "Dein Termin-Link wurde aktualisiert. Bitte verwende den Link aus dieser Nachricht.", url: link,
+  }, `termin-mitglied:${e.id}:link_update:${Date.now()}`, e.ist_test);
+  if (v.some((x) => x.mail)) await db.from("kc_termin_einladungen").update({ gesendet_am: jetzt() }).eq("id", e.id);
+  return v;
 }
 
 async function bestaetigungSenden(e: any, leute: Person[], slot: any, buchung: any) {
@@ -416,11 +434,42 @@ async function kalenderEintraege() {
 }
 
 // ---------- Übersicht für Hansi ----------
+function tokenAusTerminLink(link: unknown) {
+  try {
+    const t = new URL(String(link || "")).searchParams.get("t") || "";
+    return /^[0-9a-f]{32,64}$/.test(t) ? t : null;
+  } catch { return null; }
+}
+async function mailLinkStaende(einladungen: any[]) {
+  const ids = new Set(einladungen.map((e: any) => e.id));
+  const out = new Map<string, any>();
+  if (!ids.size) return out;
+  const { data: mails } = await db.from("kc_communication_requests")
+    .select("id,created_at,sent_at,status,variables,correlation_id,audit_meta")
+    .eq("source_program", "kc-besuche").eq("channel", "email")
+    .gte("created_at", new Date(Date.now() - 90 * 86400000).toISOString())
+    .order("created_at", { ascending: false }).limit(1000);
+  for (const m of mails ?? []) {
+    if (m.status !== "sent" || !["termin_einladung", "termin_info_mitglied"].includes(m.audit_meta?.eventKey)) continue;
+    const x = /^termin-mitglied:([0-9a-f-]{36}):/.exec(String(m.correlation_id || ""));
+    const eid = x?.[1];
+    if (!eid || !ids.has(eid) || out.has(eid)) continue;
+    const token = tokenAusTerminLink(m.variables?.url);
+    const e = einladungen.find((z: any) => z.id === eid);
+    const aktuell = !!token && (await sha256(token)) === e?.token_hash;
+    out.set(eid, {
+      mail_link_status: aktuell ? "aktuell" : token ? "veraltet" : "kein_link",
+      mail_link_gesendet_am: m.sent_at || m.created_at,
+      mail_link_request_id: m.id,
+    });
+  }
+  return out;
+}
 async function uebersicht() {
   const seit = new Date(Date.now() - 14 * 86400000).toISOString();
   const [{ data: slots }, { data: einl }, { data: prot }, { data: kal }, { data: leute }] = await Promise.all([
     db.from("kc_termin_slot_stand").select("*").gte("beginn", seit).order("beginn"),
-    db.from("kc_termin_einladungen").select("id,person_ids,status,gueltig_bis,nachricht,bemerkung,ist_test,erstellt_am,gesendet_am,geoeffnet_am,beantwortet_am")
+    db.from("kc_termin_einladungen").select("id,person_ids,status,gueltig_bis,nachricht,bemerkung,ist_test,erstellt_am,gesendet_am,geoeffnet_am,beantwortet_am,token_hash")
       .or(`status.in.(offen,gewaehlt,gegenvorschlag),erstellt_am.gte."${new Date(Date.now() - 60 * 86400000).toISOString()}"`)
       .order("erstellt_am", { ascending: false }).limit(200),
     db.from("kc_termin_protokoll").select("*").order("zeit", { ascending: false }).limit(80),
@@ -438,12 +487,18 @@ async function uebersicht() {
   const alleBuch = new Map([...(buch ?? []), ...(buchSlots ?? [])].map((b: any) => [b.id, b]));
   const fehlendeE = [...alleBuch.values()].map((b: any) => b.einladung_id).filter((id) => !eIds.includes(id));
   const { data: einl2 } = fehlendeE.length
-    ? await db.from("kc_termin_einladungen").select("id,person_ids,status,gueltig_bis,nachricht,bemerkung,ist_test,erstellt_am,gesendet_am,geoeffnet_am,beantwortet_am").in("id", fehlendeE)
+    ? await db.from("kc_termin_einladungen").select("id,person_ids,status,gueltig_bis,nachricht,bemerkung,ist_test,erstellt_am,gesendet_am,geoeffnet_am,beantwortet_am,token_hash").in("id", fehlendeE)
     : { data: [] as any[] };
   const offenKal = await kalenderEintraege().then((x) => x.length).catch(() => null);
+  const alleEinlIntern = [...(einl ?? []), ...(einl2 ?? [])];
+  const mailStaende = await mailLinkStaende(alleEinlIntern);
+  const sichereEinl = alleEinlIntern.map((e: any) => {
+    const { token_hash: _tokenHash, ...safe } = e;
+    return { ...safe, ...(mailStaende.get(e.id) ?? { mail_link_status: "keine_mail", mail_link_gesendet_am: null, mail_link_request_id: null }) };
+  });
   return {
     jetzt: jetzt(),
-    slots: slots ?? [], einladungen: [...(einl ?? []), ...(einl2 ?? [])], buchungen: [...alleBuch.values()], vorschlaege: vor ?? [],
+    slots: slots ?? [], einladungen: sichereEinl, buchungen: [...alleBuch.values()], vorschlaege: vor ?? [],
     protokoll: prot ?? [],
     mitglieder: (leute ?? []).map((p: any) => ({ person_id: p.person_id, display_name: p.display_name, given_name: p.given_name, family_name: p.family_name, hat_email: !!p.email, adresse: adresse(p), test: p.person_id.startsWith("KC-P-TEST") })),
     kalender: { ...(kal ?? {}), verbunden: !!kal?.schluessel_erstellt_am, offen: offenKal },
@@ -777,11 +832,17 @@ Deno.serve(async (req) => {
         const { data: e } = await db.from("kc_termin_einladungen").select("*").eq("id", p.einladung_id).maybeSingle();
         if (!e) throw new Fehler("Einladung nicht gefunden.", 404);
         if (e.status === "zurueckgezogen") throw new Fehler("Diese Einladung ist zurückgezogen.");
-        // Neuer Link, Frist und Status bleiben – nur der alte Link wird ungültig
-        const token = zufall();
-        await db.from("kc_termin_einladungen").update({ token_hash: await sha256(token), geaendert_am: jetzt() }).eq("id", e.id);
-        await log("hansi", "link_erneuert", { einladung_id: e.id });
-        return json({ ok: true, link: `${MITGLIED_SEITE}?t=${token}` });
+        // Neuer Link: alter Link wird ungültig, der Öffnungsstatus gehört ab jetzt wieder zum neuen Link.
+        const token = zufall(), link = `${MITGLIED_SEITE}?t=${token}`;
+        await db.from("kc_termin_einladungen").update({
+          token_hash: await sha256(token), geoeffnet_am: null, geaendert_am: jetzt(),
+        }).eq("id", e.id);
+        const leute = await personen(e.person_ids);
+        const v = leute.some((l) => !!l.email) ? await linkUpdateSenden(e, leute, link) : [];
+        await log("hansi", "link_erneuert", { einladung_id: e.id }, {
+          namen: namenKurz(leute), automatisch_gesendet: v.some((x) => x.mail), versand: versandText(v) || undefined,
+        });
+        return json({ ok: true, link, versand: v, mail_gesendet: v.some((x) => x.mail) });
       }
 
       case "t_zurueckziehen": {
