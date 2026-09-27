@@ -78,7 +78,7 @@ function artText(art) {
 }
 
 async function api(action, daten = {}) {
-  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, t: T, ...daten }) });
+  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, t: T, client: "termin_html", page_open: action === "m_laden", ...daten }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) { const f = new Error(j.error || "Verbindungsfehler – bitte noch einmal versuchen."); f.stand = j.stand; f.grund = j.grund; throw f; }
   return j;
