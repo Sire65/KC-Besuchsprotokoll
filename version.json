@@ -1,8 +1,9 @@
 {
-  "version": "1.3.5",
+  "version": "1.3.6",
   "datum": "2026-09-27",
   "neu": [
-    "Terminübersicht trennt jetzt Mailversand und tatsächliches Öffnen des Termin-Links – jeweils mit Uhrzeit",
-    "Technische API-Prüfungen markieren den Termin-Link nicht mehr als vom Mitglied geöffnet"
+    "Das Programm prüft automatisch, ob die zuletzt direkt versandte KC-Mail den aktuell gültigen Termin-Link enthält",
+    "Veraltete Mail-Links werden in der Terminübersicht deutlich markiert",
+    "Beim Erneuern wird der neue Link bei vorhandener E-Mail-Adresse automatisch versendet und der Öffnungsstatus für den neuen Link zurückgesetzt"
   ]
 }
