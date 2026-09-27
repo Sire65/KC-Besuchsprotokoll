@@ -74,6 +74,8 @@ r=await H("t_erneut_einladen",{einladung_id:eGew.id}); ok(r.s===200&&r.j.link,"e
 r=await H("t_link",{einladung_id:eGew.id}); ok(r.s===200&&r.j.link,"Link erneuert",r);
 let nachLink=await H("t_init"); let eNachLink=nachLink.j.einladungen.find(e=>e.id===eGew.id);
 ok(!eNachLink.geoeffnet_am,"neuer Link setzt Öffnungsstatus zurück",eNachLink);
+let hist=await H("t_chronologie",{einladung_id:eGew.id});
+ok(hist.s===200&&Array.isArray(hist.j.ereignisse)&&hist.j.ereignisse.length>0,"Chronologie abrufbar",hist);
 ok((await H("t_slot_loeschen",{slot_id:B.id})).s===400,"Termin mit Buchungshistorie nicht löschbar");
 r=await H("t_slot_absagen",{slot_id:A.id,nachricht:"krank"}); ok(r.s===200&&r.j.betroffen===1,"Termin A abgesagt, 1 Gruppe betroffen",r);
 r=await M(tG,"m_laden"); ok(r.s===404,"Gruppe: alter Link nach Ausfall ungültig (neuer kam per Mail)");
