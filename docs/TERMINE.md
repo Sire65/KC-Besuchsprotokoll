@@ -20,6 +20,11 @@
 7. **Google-Kalender**: Google-Apps-Skript in Hansis Konto (`google/KalenderAbgleich.gs`) gleicht alle 5 Minuten ab.
    Farben: grau geplant, gelb vorgemerkt, grün gebucht, orange Vorschlag, rot abgesagt. Einrichtung: `google/ANLEITUNG.md`.
 
+## Tablet-Hinweis (ab 1.3.4)
+
+Einladung, Bestätigung und Erinnerung (Mail/Push-Text) sowie `termin.html` bitten die Mitglieder, ein Tablet mitzubringen bzw. bereitzulegen,
+damit Hansi die Schulungsversion der Programme darauf installieren kann. Text an einer Stelle: `tabletHinweis()` in `kc-termine` (Mails) und in `termin.html` (Seite).
+
 ## Mündlich abgesprochene Termine (ab 1.3.0)
 
 1. Im Besuch „📅 Geplant“ + „📅 Terminbestätigung per Push + Mail senden“ (oder Reiter Termine → „➕ Abgesprochenen Termin eintragen“).

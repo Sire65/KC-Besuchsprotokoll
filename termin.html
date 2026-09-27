@@ -93,12 +93,20 @@ function zeigeFehler(t) {
   $("inhalt").innerHTML = `<div class="status grau"><div class="gross">Link nicht gültig</div>${esc(t)}<p class="hinweis">Bei Fragen melde dich einfach direkt bei Hansi.</p></div>`;
 }
 
+// Hinweis Schulungsversion (ab 1.3.4), gleicher Text wie in den Mails (kc-termine: tabletHinweis)
+function tabletHinweis(art) {
+  const was = art === "beim_mitglied" ? du("Leg gerne ein Tablet bereit", "Legt gerne ein Tablet bereit")
+    : art === "bei_hansi" ? du("Bring gerne ein Tablet mit", "Bringt gerne ein Tablet mit")
+    : du("Wenn du ein Tablet hast, bring es gerne mit bzw. leg es bereit", "Wenn ihr ein Tablet habt, bringt es gerne mit bzw. legt es bereit");
+  return `<p class="hinweis">📱 ${was} – dann installiert Hansi ${du("dir", "euch")} die Schulungsversion unserer Programme direkt darauf, und ${du("du kannst", "ihr könnt")} zu Hause in Ruhe weiter üben.</p>`;
+}
+
 function zeigen() {
   const s = stand, namen = s.namen.join(" und ");
   let h = `<div class="karte"><div class="gruss">Hallo ${esc(namen)}!</div>`;
   if (s.status === "offen") {
     h += `<div>Hansi möchte ${du("dich", "euch")} gerne treffen und ${du("dir", "euch")} unsere Programme zeigen. ${du("Such dir", "Sucht euch")} einfach einen Termin aus.</div>` +
-      `<div class="frist">Bitte bis ${esc(fFrist.format(new Date(s.gueltig_bis)))} Uhr wählen</div>`;
+      `<div class="frist">Bitte bis ${esc(fFrist.format(new Date(s.gueltig_bis)))} Uhr wählen</div>` + tabletHinweis();
   }
   h += `</div>`;
 
@@ -133,14 +141,14 @@ function zeigen() {
     </div>`;
   } else if (s.status === "gewaehlt" && s.buchung) {
     h += `<div class="status orange">✅ ${du("Du hast", "Ihr habt")} gewählt:<div class="gross">${esc(wann(s.buchung.beginn, s.buchung.ende))}</div>${artText(s.buchung.besuchsart)}
-      <p>Der Termin ist für ${du("dich", "euch")} reserviert. Hansi bestätigt ihn noch – dann ${du("bekommst du", "bekommt ihr")} eine Bestätigungsmail.</p></div>`;
+      <p>Der Termin ist für ${du("dich", "euch")} reserviert. Hansi bestätigt ihn noch – dann ${du("bekommst du", "bekommt ihr")} eine Bestätigungsmail.</p>${tabletHinweis(s.buchung.besuchsart)}</div>`;
     if (s.frist_offen) h += `<button class="knopf leise" onclick="aendern()">Doch einen anderen Termin wählen</button>`;
   } else if (s.status === "gegenvorschlag") {
     h += `<div class="status orange">💬 ${du("Deine", "Eure")} Vorschläge sind bei Hansi:<ul>${s.vorschlaege.map((v) => `<li>${esc(wann(v.beginn, v.ende))}</li>`).join("")}</ul>Er meldet sich bei ${du("dir", "euch")}.</div>`;
     if (s.frist_offen) h += `<button class="knopf leise" onclick="aendern()">Doch einen der angebotenen Termine wählen</button>`;
   } else if (s.status === "bestaetigt" && s.buchung) {
     h += `<div class="status gruen">🎉 ${du("Dein", "Euer")} Termin ist bestätigt:<div class="gross">${esc(wann(s.buchung.beginn, s.buchung.ende))}</div>📍 ${esc(s.buchung.ort || "")}
-      <p>Falls etwas dazwischenkommt, ${du("gib", "gebt")} Hansi bitte kurz Bescheid.</p>
+      <p>Falls etwas dazwischenkommt, ${du("gib", "gebt")} Hansi bitte kurz Bescheid.</p>${tabletHinweis(s.buchung.besuchsart)}
       <button class="knopf zweit" onclick="kalenderDatei()">📅 In meinen Kalender übernehmen</button></div>`;
   } else if (s.status === "abgesagt") {
     h += `<div class="status grau">Danke für ${du("deine", "eure")} Rückmeldung! Hansi weiß Bescheid, dass zurzeit kein Besuch gewünscht ist.</div>`;

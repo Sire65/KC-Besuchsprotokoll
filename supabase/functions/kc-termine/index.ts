@@ -114,6 +114,14 @@ function artText(art: string, n: number) {
   if (art === "beim_mitglied") return `ich komme zu ${w.dir}`;
   return `bei ${w.dir} oder bei mir – ${w.du} ${w.entscheidest}`;
 }
+// Hinweis Schulungsversion (ab 1.3.4): steht in Einladung, Bestätigung und Erinnerung
+function tabletHinweis(n: number, art?: string) {
+  const ihr = n > 1;
+  const was = art === "beim_mitglied" ? (ihr ? "Legt gerne ein Tablet bereit" : "Leg gerne ein Tablet bereit")
+    : art === "bei_hansi" ? (ihr ? "Bringt gerne ein Tablet mit" : "Bring gerne ein Tablet mit")
+    : (ihr ? "Wenn ihr ein Tablet habt, bringt es gerne mit bzw. legt es bereit" : "Wenn du ein Tablet hast, bring es gerne mit bzw. leg es bereit");
+  return `📱 ${was} – dann installiere ich ${ihr ? "euch" : "dir"} die Schulungsversion unserer Programme direkt darauf, und ${ihr ? "ihr könnt" : "du kannst"} zu Hause in Ruhe weiter üben.`;
+}
 function artKurz(art: string) {
   return art === "bei_hansi" ? "bei mir" : art === "beim_mitglied" ? "ich fahre hin" : art === "wahl" ? "Ort nach Wahl" : "Ort egal";
 }
@@ -253,6 +261,7 @@ async function einladungSenden(e: any, leute: Person[], link: string, gueltig: s
     einstieg[anlass] + (extra ? "\n\n" + extra : "") + (e.nachricht && anlass === "neu" ? "\n\n" + e.nachricht : ""), "",
     `Über diesen Link ${w.kannst} ${w.du} ${n > 1 ? "euch" : "dir"} einen Termin aussuchen:`, link, "",
     "Zurzeit frei:", liste, "",
+    tabletHinweis(n), "",
     `Wer zuerst wählt, bekommt den Termin – der Link zeigt immer den aktuellen Stand. Passt keiner, ${w.kannst} ${w.du} dort „Kein Termin passt“ ankreuzen und mir zwei eigene Vorschläge schicken.`, "",
     `${w.antworte === "antwortet" ? "Bitte antwortet" : "Bitte antworte"} bis ${frist(gueltig)}.`, "",
     "Viele Grüße", "Hansi", "Köcheclub Werne",
@@ -276,6 +285,7 @@ async function bestaetigungSenden(e: any, leute: Person[], slot: any, buchung: a
     `hiermit bestätige ich ${w.deinen} Termin:`, "",
     `📅 ${wann(slot.beginn, slot.ende, true)}`,
     `📍 ${buchung.besuchsart === "bei_hansi" ? `bei mir: ${await hansiOrt()}` : `ich komme zu ${w.dir}${adresse(leute[0]) ? ": " + adresse(leute[0]) : ""}`}`, "",
+    tabletHinweis(n, buchung.besuchsart), "",
     anhangId ? `Im Anhang ist der Termin als Kalenderdatei – einfach antippen, dann steht er in ${w.deinem} Kalender.` : "",
     `Falls etwas dazwischenkommt, ${w.gib} mir bitte kurz Bescheid.`, "",
     `Ich freue mich auf ${w.dich}!`, "",
@@ -324,6 +334,7 @@ async function erinnerungen() {
     const leute = await personen(b.einladung.person_ids), k = leute.length, w = sprache(k);
     const text = [await anredeZeile(leute), "", `kurze Erinnerung an unser Treffen morgen:`, "",
       `📅 ${wann(b.slot.beginn, b.slot.ende, true)}`, `📍 ${await ortFuer(b.besuchsart, leute)}`, "",
+      tabletHinweis(k, b.besuchsart), "",
       `Falls etwas dazwischenkommt, ${w.gib} mir bitte kurz Bescheid.`, "", "Bis morgen!", "Hansi", "Köcheclub Werne"].join("\n");
     const v = await senden("termin_info_mitglied", leute.map((l) => l.person_id), {
       betreff: `Köcheclub Werne – Erinnerung: morgen, ${fZeit.format(new Date(b.slot.beginn))} Uhr`, text,
