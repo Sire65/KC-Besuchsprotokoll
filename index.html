@@ -299,7 +299,7 @@
 </div>
 
 <script>
-const APP_VERSION = "1.3.4"; // gleich halten mit sw.js und version.json (siehe CHANGELOG.md)
+const APP_VERSION = "1.3.5"; // gleich halten mit sw.js und version.json (siehe CHANGELOG.md)
 const API = "https://ptblnpiroqftcvlsrhac.supabase.co/functions/v1/kc-besuche";
 const ENTWURF = "kc_besuch_entwurf";
 // Foto vom Papierprotokoll auswerten: erst einschalten, wenn in Supabase das Secret ANTHROPIC_API_KEY für kc-besuche gesetzt ist
@@ -1034,7 +1034,7 @@ function einladungListeZeigen() {
     const b = T.buchungen.find((x) => x.einladung_id === e.id && ["vorgemerkt", "bestaetigt"].includes(x.status));
     const s = b && slot(b.slot_id);
     return `<div class="eintrag"><b>${esc(gruppe(e.person_ids))}</b> <span class="marke ${farbe}">${txt}</span>${e.ist_test ? ' <span class="marke grau">Test</span>' : ""}
-      <div class="klein">eingeladen ${zeitDe(e.erstellt_am)}${e.status === "offen" ? ` · Frist bis ${zeitDe(e.gueltig_bis)}` : ""}${e.geoeffnet_am ? " · Link geöffnet" : " · Link noch nicht geöffnet"}${s ? ` · ${twann(s.beginn, s.ende)}` : ""}</div>
+      <div class="klein">eingeladen ${zeitDe(e.erstellt_am)}${e.gesendet_am ? ` · Mail gesendet ${zeitDe(e.gesendet_am)}` : ""}${e.status === "offen" ? ` · Frist bis ${zeitDe(e.gueltig_bis)}` : ""}${e.geoeffnet_am ? ` · Termin-Link geöffnet ${zeitDe(e.geoeffnet_am)}` : " · Termin-Link noch nicht geöffnet"}${s ? ` · ${twann(s.beginn, s.ende)}` : ""}</div>
       ${e.bemerkung ? `<div class="klein">„${esc(e.bemerkung)}“</div>` : ""}
       <div class="knoepfe">
         ${["offen", "gewaehlt", "gegenvorschlag", "bestaetigt"].includes(e.status) ? `<button class="grau" onclick="linkNeu(this,'${e.id}')">🔗 Link teilen</button>` : ""}
@@ -1090,7 +1090,7 @@ async function skriptKopieren() {
 // ----- Protokoll -----
 const P_TEXT = {
   termin_angeboten: "Termin eingestellt", termin_geloescht: "Termin gelöscht", termin_abgesagt: "Termin abgesagt",
-  eingeladen: "Eingeladen", erneut_eingeladen: "Erneut eingeladen", link_erneuert: "Neuer Link", link_geoeffnet: "Link geöffnet",
+  eingeladen: "Eingeladen", erneut_eingeladen: "Erneut eingeladen", link_erneuert: "Neuer Link", link_geoeffnet: "Termin-Link geöffnet",
   termin_gewaehlt: "Termin gewählt", gegenvorschlag: "Gegenvorschlag", abgesagt: "Kein Besuch gewünscht", antwort_zurueckgenommen: "Antwort zurückgenommen",
   buchung_bestaetigt: "Bestätigt", buchung_abgelehnt: "Abgelehnt", gegenvorschlag_angenommen: "Vorschlag angenommen", neue_termine_angeboten: "Neue Termine angeboten",
   buchung_storniert_termin_abgesagt: "Buchung storniert (Termin fiel aus)", einladung_zurueckgezogen: "Einladung zurückgezogen",
