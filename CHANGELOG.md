@@ -7,6 +7,14 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.3.6 – 27.09.2026 (Server: kc-termine v10)
+- Automatische Mail-Link-Prüfung: der letzte direkt über das KC-System versandte Termin-Link wird per SHA-256 mit dem aktuell gültigen Token-Hash verglichen
+- Übersicht kennzeichnet aktuelle und veraltete KC-Mail-Links
+- „Link teilen“ wurde zu „Link erneuern & teilen“ präzisiert; Link-Erneuerung macht den bisherigen Link bewusst ungültig
+- Bei vorhandener E-Mail-Adresse verschickt das System den erneuerten Link automatisch und protokolliert ihn
+- Neue bzw. wiedereröffnete Links setzen den Öffnungsstatus zurück; Wiedereröffnungen setzen auch den alten Antwortzeitpunkt zurück
+- Erfolgreicher Einladungs-Mailversand aktualisiert `gesendet_am` zentral
+
 ## 1.3.5 – 27.09.2026 (Server: kc-termine v9)
 - Terminübersicht zeigt Mailversand und tatsächliches Öffnen des Termin-Links getrennt und jeweils mit Uhrzeit
 - Protokolltext präzisiert: „Termin-Link geöffnet“
