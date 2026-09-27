@@ -22,7 +22,7 @@ const AKTIV = ["vorgemerkt", "bestaetigt"];
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, x-key, x-kalender-key",
+  "Access-Control-Allow-Headers": "content-type, x-key, x-kalender-key, x-kc-termine-admin-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (body: unknown, status = 200) =>
@@ -600,14 +600,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ----- Hansi (App) -----
+    // ----- Hansi (App / interner Admin-Aufruf) -----
     const key = req.headers.get("x-key") ?? "";
+    const internKey = req.headers.get("x-kc-termine-admin-token") ?? "";
     const { data: zug } = await db.from("kc_besuche_zugang").select("key_sha256");
     const h = key ? await sha256(key) : "";
     // Prüfschlüssel (nur für Funktionstests, liegt befristet im Vault): erzwingt Testmodus, verschickt nie etwas
     const { data: pruef } = await db.rpc("kc_communication_get_server_secret", { p_name: "kc_termine_pruefschluessel_sha256" });
+    const { data: intern } = await db.rpc("kc_communication_get_server_secret", { p_name: "kc_termine_admin_token" });
     const istPruefung = !!key && !!pruef && pruef === h;
-    if (!key || !((zug ?? []).some((z: any) => z.key_sha256 === h) || istPruefung)) return json({ error: "Kein Zugang" }, 401);
+    const istIntern = !!internKey && !!intern && internKey === intern;
+    if (!istIntern && (!key || !((zug ?? []).some((z: any) => z.key_sha256 === h) || istPruefung))) return json({ error: "Kein Zugang" }, 401);
     if (istPruefung) p.test = true;
 
     switch (a) {
