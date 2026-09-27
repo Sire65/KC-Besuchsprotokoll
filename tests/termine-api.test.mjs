@@ -24,8 +24,14 @@ ok(r.j.ergebnisse.every(e=>e.versand[0].hinweis?.includes("Test")),"Testmodus: n
 const [EB,EG,E3]=r.j.ergebnisse; let tB=tk(EB.link), tG=tk(EG.link), t3=tk(E3.link);
 ok((await H("t_einladen",{gruppen:[["KC-P-M0003"]]})).j.ergebnisse[0].fehler?.includes("offene Einladung"),"doppelte Einladung verhindert");
 ok((await H("t_einladen",{gruppen:[["KC-P-M0004","KC-P-M0005","KC-P-M0006","KC-P-M0007"]]})).s===400,"mehr als 3 abgelehnt");
-// Laden
+// Laden: technische Prüfung darf den Öffnungsstatus nicht verändern
 r=await M(tG,"m_laden"); ok(r.s===200&&r.j.anzahl===2&&r.j.frei.length===3&&r.j.status==="offen","Gruppe sieht 3 freie Termine",r);
+let ti=await H("t_init"); let eOpen=ti.j.einladungen.find(e=>e.id===EG.einladung_id);
+ok(!eOpen.geoeffnet_am,"technischer m_laden-Aufruf markiert Link nicht als geöffnet",eOpen);
+// Echte Mitgliederseite markiert den Link
+r=await M(tG,"m_laden",{client:"termin_html",page_open:true}); ok(r.s===200,"echte Mitgliederseite lädt",r);
+ti=await H("t_init"); eOpen=ti.j.einladungen.find(e=>e.id===EG.einladung_id);
+ok(!!eOpen.geoeffnet_am,"echte Mitgliederseite markiert Link als geöffnet",eOpen);
 // Gleichzeitig Hausbesuch B wählen
 const [x1,x2]=await Promise.all([M(tB,"m_waehlen",{slot_id:B.id}),M(t3,"m_waehlen",{slot_id:B.id})]);
 ok([x1.s,x2.s].sort().join()==="200,409","gleichzeitige Wahl: genau einer gewinnt",[x1,x2]);
