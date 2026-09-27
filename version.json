@@ -1,9 +1,9 @@
 {
-  "version": "1.3.6",
+  "version": "1.3.7",
   "datum": "2026-09-27",
   "neu": [
-    "Das Programm prüft automatisch, ob die zuletzt direkt versandte KC-Mail den aktuell gültigen Termin-Link enthält",
-    "Veraltete Mail-Links werden in der Terminübersicht deutlich markiert",
-    "Beim Erneuern wird der neue Link bei vorhandener E-Mail-Adresse automatisch versendet und der Öffnungsstatus für den neuen Link zurückgesetzt"
+    "Für jede Einladung gibt es jetzt eine antippbare Chronologie pro Person bzw. Gruppe",
+    "Die Chronologie zeigt Einladung, Linköffnung, Terminwahl, Bestätigung, Änderungen und Absagen in zeitlicher Reihenfolge",
+    "Mail- und Push-Versand sowie gemeldete Zustell-, Öffnungs- und Anzeigeereignisse erscheinen ebenfalls im Ablauf"
   ]
 }
