@@ -519,9 +519,12 @@ Deno.serve(async (req) => {
       const fristOffen = new Date(e.gueltig_bis) > new Date();
       switch (a) {
         case "m_laden": {
-          if (!e.geoeffnet_am) {
+          // Nur die echte Mitgliederseite darf einen Link als geöffnet markieren.
+          // Direkte API-/Technikprüfungen lesen den Stand, verändern aber geoeffnet_am nicht.
+          const echteSeite = p.client === "termin_html" && p.page_open === true;
+          if (echteSeite && !e.geoeffnet_am) {
             await db.from("kc_termin_einladungen").update({ geoeffnet_am: jetzt() }).eq("id", e.id);
-            await log("mitglied", "link_geoeffnet", { einladung_id: e.id });
+            await log("mitglied", "link_geoeffnet", { einladung_id: e.id }, { quelle: "termin_html" });
           }
           return json(await mitgliedStand(e));
         }
