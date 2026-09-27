@@ -72,6 +72,8 @@ r=await M(gewinnerT,"m_absagen",{bemerkung:"keine Zeit"}); ok(r.s===200&&r.j.sta
 let eGew=(await H("t_init")).j.einladungen.find(e=>e.status==="abgesagt");
 r=await H("t_erneut_einladen",{einladung_id:eGew.id}); ok(r.s===200&&r.j.link,"erneut eingeladen",r);
 r=await H("t_link",{einladung_id:eGew.id}); ok(r.s===200&&r.j.link,"Link erneuert",r);
+let nachLink=await H("t_init"); let eNachLink=nachLink.j.einladungen.find(e=>e.id===eGew.id);
+ok(!eNachLink.geoeffnet_am,"neuer Link setzt Öffnungsstatus zurück",eNachLink);
 ok((await H("t_slot_loeschen",{slot_id:B.id})).s===400,"Termin mit Buchungshistorie nicht löschbar");
 r=await H("t_slot_absagen",{slot_id:A.id,nachricht:"krank"}); ok(r.s===200&&r.j.betroffen===1,"Termin A abgesagt, 1 Gruppe betroffen",r);
 r=await M(tG,"m_laden"); ok(r.s===404,"Gruppe: alter Link nach Ausfall ungültig (neuer kam per Mail)");
