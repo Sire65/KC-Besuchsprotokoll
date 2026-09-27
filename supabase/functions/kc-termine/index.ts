@@ -506,6 +506,84 @@ async function uebersicht() {
   };
 }
 
+// ---------- Chronologie je Einladung / Person ----------
+function sichereProtDetails(d: any) {
+  if (!d || typeof d !== "object") return {};
+  const erlaubt = ["namen","wann","vorschlaege","bemerkung","versand","anlass","vorher","neue_frist","frist","grund","hinweis","test"];
+  return Object.fromEntries(erlaubt.filter((k) => d[k] !== undefined).map((k) => [k, d[k]]));
+}
+async function chronologie(einladungId: string) {
+  const { data: e } = await db.from("kc_termin_einladungen")
+    .select("id,person_ids,status,erstellt_am,gesendet_am,geoeffnet_am,beantwortet_am,gueltig_bis")
+    .eq("id", einladungId).maybeSingle();
+  if (!e) throw new Fehler("Einladung nicht gefunden.", 404);
+  const leute = await personen(e.person_ids);
+  const { data: buch } = await db.from("kc_termin_buchungen")
+    .select("id,slot_id,status,erstellt_am,entschieden_am,bestaetigung_gesendet_am,erinnerung_gesendet_am")
+    .eq("einladung_id", e.id).order("erstellt_am");
+  const buchIds = (buch ?? []).map((b: any) => b.id);
+  const { data: prot } = await db.from("kc_termin_protokoll").select("*").eq("einladung_id", e.id).order("zeit");
+
+  const seit = new Date(new Date(e.erstellt_am).getTime() - 86400000).toISOString();
+  const { data: alleReq } = await db.from("kc_communication_requests")
+    .select("id,channel,status,provider_id,error_code,error_message,created_at,sent_at,correlation_id,audit_meta,variables")
+    .eq("source_program", "kc-besuche").gte("created_at", seit)
+    .order("created_at").limit(2000);
+
+  const relevant = (alleReq ?? []).filter((r: any) => {
+    const c = String(r.correlation_id || "");
+    if (c.startsWith(`termin-mitglied:${e.id}:`)) return true;
+    return buchIds.some((id: string) =>
+      c.startsWith(`termin-bestaetigung:${id}:`) ||
+      c === `termin-erinnerung:${id}` || c.startsWith(`termin-erinnerung:${id}:`) ||
+      c === `termin-absage:${id}` || c.startsWith(`termin-absage:${id}:`)
+    );
+  });
+  const reqIds = relevant.map((r: any) => r.id);
+  const { data: delivery } = reqIds.length
+    ? await db.from("kc_communication_delivery_events").select("id,request_id,event_type,provider,detail,created_at").in("request_id", reqIds).order("created_at")
+    : { data: [] as any[] };
+
+  const pName = new Map(leute.map((p: any) => [p.person_id, p.display_name || [p.given_name,p.family_name].filter(Boolean).join(" ") || p.person_id]));
+  const reqById = new Map(relevant.map((r: any) => [r.id, r]));
+  const ereignisse: any[] = [];
+
+  for (const p of prot ?? []) {
+    ereignisse.push({
+      typ: "aktion", zeit: p.zeit, wer: p.wer, aktion: p.aktion,
+      details: sichereProtDetails(p.details), slot_id: p.slot_id || null, buchung_id: p.buchung_id || null,
+    });
+  }
+  for (const r of relevant) {
+    const pid = r.audit_meta?.personId;
+    const person = pName.get(pid) || (leute.length === 1 ? namenKurz(leute) : "Mitglied");
+    ereignisse.push({
+      typ: "versand", zeit: r.sent_at || r.created_at, channel: r.channel, status: r.status,
+      event_key: r.audit_meta?.eventKey || "", person,
+      betreff: r.variables?.subject || r.variables?.betreff || r.variables?.title || "",
+      provider: r.provider_id || "", fehler: r.error_message || r.error_code || "",
+    });
+  }
+  for (const d of delivery ?? []) {
+    if (["processing","sent"].includes(d.event_type)) continue;
+    const r: any = reqById.get(d.request_id);
+    if (!r) continue;
+    const pid = r.audit_meta?.personId;
+    const person = pName.get(pid) || (leute.length === 1 ? namenKurz(leute) : "Mitglied");
+    const detailText = d.event_type === "opened" ? "Der Mail-Provider hat ein Öffnungsereignis gemeldet."
+      : d.event_type === "displayed" ? "Das Push-System hat die Anzeige auf einem Gerät gemeldet."
+      : d.event_type === "delivered" ? "Der Provider hat die Zustellung bestätigt."
+      : d.detail?.reason ? String(d.detail.reason).slice(0,300)
+      : d.detail?.error ? String(d.detail.error).slice(0,300) : "";
+    ereignisse.push({
+      typ: "zustellung", zeit: d.created_at, channel: r.channel, event_type: d.event_type,
+      person, provider: d.provider || r.provider_id || "", detail_text: detailText,
+    });
+  }
+  ereignisse.sort((a, b) => new Date(a.zeit).getTime() - new Date(b.zeit).getTime());
+  return { namen: namenKurz(leute), status: e.status, ereignisse };
+}
+
 // ---------- Mitgliederseite ----------
 async function einladungZuToken(t: unknown) {
   if (typeof t !== "string" || !/^[0-9a-f]{32,64}$/.test(t)) throw new Fehler("Dieser Link ist ungültig.", 404, { grund: "link" });
@@ -675,6 +753,12 @@ Deno.serve(async (req) => {
       case "t_init": {
         await ablaufPruefen();
         return json(await uebersicht());
+      }
+
+      case "t_chronologie": {
+        const id = String(p.einladung_id || "");
+        if (!/^[0-9a-f-]{36}$/.test(id)) throw new Fehler("Einladung nicht gefunden.", 404);
+        return json(await chronologie(id));
       }
 
       case "t_slots_anlegen": {
