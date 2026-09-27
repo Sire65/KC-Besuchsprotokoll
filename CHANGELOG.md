@@ -7,6 +7,14 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.3.7 – 27.09.2026 (Server: kc-termine v11)
+- Klickbare Chronologie je Einladung/Person bzw. Gruppe
+- Name in der Einladungsliste öffnet den Ablauf; zusätzlicher Knopf „📜 Ablauf“
+- Chronologie lädt bei Bedarf und kombiniert Terminprotokoll mit KC-Communicator-Versanddaten
+- Mail- und Push-Versand werden mit Datum/Uhrzeit angezeigt; Provider-Ereignisse wie zugestellt, Mail geöffnet oder Push angezeigt erscheinen separat, soweit vorhanden
+- Technische Linkprüfungen werden ausdrücklich als technische Prüfung gekennzeichnet
+- Keine Termin-Token, Mailadressen oder Nachrichtentexte werden über die Chronologie an die Oberfläche gegeben
+
 ## 1.3.6 – 27.09.2026 (Server: kc-termine v10)
 - Automatische Mail-Link-Prüfung: der letzte direkt über das KC-System versandte Termin-Link wird per SHA-256 mit dem aktuell gültigen Token-Hash verglichen
 - Übersicht kennzeichnet aktuelle und veraltete KC-Mail-Links
