@@ -7,6 +7,12 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.3.5 – 27.09.2026 (Server: kc-termine v9)
+- Terminübersicht zeigt Mailversand und tatsächliches Öffnen des Termin-Links getrennt und jeweils mit Uhrzeit
+- Protokolltext präzisiert: „Termin-Link geöffnet“
+- `m_laden` setzt `geoeffnet_am` nur noch bei Aufruf durch die echte Mitgliederseite (`client=termin_html`, `page_open=true`); direkte API-/Technikprüfungen bleiben schreibfrei
+- Funktionstest ergänzt: technischer Abruf verändert den Öffnungsstatus nicht, echter Seitenaufruf schon
+
 ## 1.3.4 – 27.09.2026 (Server: kc-termine v8)
 - Tablet-Hinweis (Schulungsversion) in allen Mitglieder-Mails: Einladung (alle Anlässe), Terminbestätigung, Erinnerung am Vortag – je nach Ort „bring … mit“ / „leg … bereit“, Einzahl/Mehrzahl (`tabletHinweis` in `kc-termine`)
 - Gleicher Hinweis auf `termin.html` (Einladung offen, Termin gewählt, Termin bestätigt)
