@@ -7,6 +7,13 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.3.8 – 28.09.2026 (Server unverändert)
+- Feature KC-BES-STAND: In „Mitglieder einladen“ steht hinter jedem Namen der Stand, automatisch aus Einladungen, Buchungen und Besuchen:
+  🎓 geschult (stattgefundener Besuch, mit Datum) · ✅ Termin TT.MM. · ⏳ gewählt – freigeben · 💬 Gegenvorschlag ·
+  ✉️ eingeladen (· Link geöffnet) · ✖ abgesagt · ⌛ keine Antwort · zurückgezogen · noch nicht eingeladen
+- Mitkommende ohne eigene Einladung (geplanter Besuch, z. B. Ruth mit Karla) zeigen ebenfalls ✅ Termin
+- Test: `node tests/mitglied-stand.test.mjs` (offline)
+
 ## 1.3.7 – 27.09.2026 (Server: kc-termine v11)
 - Klickbare Chronologie je Einladung/Person bzw. Gruppe
 - Name in der Einladungsliste öffnet den Ablauf; zusätzlicher Knopf „📜 Ablauf“
