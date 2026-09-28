@@ -323,7 +323,7 @@
 </div>
 
 <script>
-const APP_VERSION = "1.3.7"; // gleich halten mit sw.js und version.json (siehe CHANGELOG.md)
+const APP_VERSION = "1.3.8"; // gleich halten mit sw.js und version.json (siehe CHANGELOG.md)
 const API = "https://ptblnpiroqftcvlsrhac.supabase.co/functions/v1/kc-besuche";
 const ENTWURF = "kc_besuch_entwurf";
 // Foto vom Papierprotokoll auswerten: erst einschalten, wenn in Supabase das Secret ANTHROPIC_API_KEY für kc-besuche gesetzt ist
@@ -1003,12 +1003,40 @@ function besuchAusTermin(bid) {
 }
 
 // ----- Mitglieder einladen -----
+// Stand je Mitglied auf einen Blick (ab 1.3.8, Feature KC-BES-STAND): automatisch aus Einladungen, Buchungen und Besuchen.
+// Geschult = es gibt einen stattgefundenen Besuch (Status nicht „geplant“). Dazu der aktuelle Termin-Stand der neuesten Einladung.
+const fTagKurz = new Intl.DateTimeFormat("de-DE", { timeZone: TZ, day: "2-digit", month: "2-digit" });
+const tagKurz = (d) => (d ? fTagKurz.format(new Date(d)) : "");
+function mitgliedStand(pid) {
+  const marken = [];
+  const geschult = besuche.filter((b) => b.status !== "geplant" && (b.person_ids || []).includes(pid)).map((b) => b.datum).sort().pop();
+  if (geschult) marken.push(`<span class="marke gruen">🎓 geschult ${tagKurz(geschult + "T12:00:00")}</span>`);
+  // Geplanter Besuch ohne eigene Einladung (z. B. Ruth kommt mit Karla) zählt als Termin
+  const heute = tfDatum.format(new Date());
+  const geplant = besuche.filter((b) => b.status === "geplant" && (b.person_ids || []).includes(pid) && b.datum >= heute).map((b) => b.datum).sort()[0];
+  const einl = T.einladungen.filter((e) => !e.ist_test && e.person_ids.includes(pid)).sort((a, b) => String(b.erstellt_am).localeCompare(String(a.erstellt_am)))[0];
+  const planMarke = () => (geplant ? `<span class="marke gruen">✅ Termin ${tagKurz(geplant + "T12:00:00")}</span>` : "");
+  if (!einl) return [...marken, planMarke()].filter(Boolean).join(" ") || '<span class="marke grau">noch nicht eingeladen</span>';
+  const buchung = T.buchungen.filter((b) => b.einladung_id === einl.id && ["vorgemerkt", "bestaetigt"].includes(b.status))[0];
+  const slot = buchung && T.slots.find((x) => x.id === buchung.slot_id);
+  const wann = slot ? " " + tagKurz(slot.beginn) : "";
+  if (buchung?.status === "bestaetigt") {
+    // Termin schon vorbei und Besuch eingetragen → „geschult“ reicht
+    if (!(geschult && slot && new Date(slot.beginn) < new Date())) marken.push(`<span class="marke gruen">✅ Termin${wann}</span>`);
+  } else if (buchung?.status === "vorgemerkt") marken.push(`<span class="marke">⏳ gewählt${wann} – freigeben</span>`);
+  else if (einl.status === "gegenvorschlag") marken.push('<span class="marke">💬 Gegenvorschlag</span>');
+  else if (einl.status === "offen" && new Date(einl.gueltig_bis) > new Date()) marken.push(`<span class="marke blau">✉️ eingeladen${einl.geoeffnet_am ? " · Link geöffnet" : ""}</span>`);
+  else if (einl.status === "abgesagt") marken.push('<span class="marke rot">✖ abgesagt</span>');
+  else if (einl.status === "abgelaufen" || einl.status === "offen") marken.push('<span class="marke grau">⌛ keine Antwort</span>');
+  else if (einl.status === "zurueckgezogen" && !geschult) marken.push('<span class="marke grau">zurückgezogen</span>');
+  if (buchung?.status !== "bestaetigt" && geplant) marken.push(planMarke());
+  return marken.join(" ");
+}
 function mListeZeigen() {
   const q = ($("mSuche").value || "").toLowerCase();
-  const offen = new Set(T.einladungen.filter((e) => ["offen", "gewaehlt", "gegenvorschlag"].includes(e.status)).flatMap((e) => e.person_ids));
   const ms = T.mitglieder.filter((m) => !m.test && m.person_id !== "KC-P-002" && (!q || m.display_name.toLowerCase().includes(q)));
   $("mListe").innerHTML = ms.map((m) => `<label><input type="checkbox" ${mGewaehlt.includes(m.person_id) ? "checked" : ""} onchange="mWahl('${m.person_id}', this.checked)">
-    <span>${esc(m.display_name)}${m.hat_email ? "" : ' <span class="marke rot">keine E-Mail</span>'}${offen.has(m.person_id) ? ' <span class="marke blau">eingeladen</span>' : ""}</span></label>`).join("") || '<p class="hinweis" style="padding:0 12px">Niemand gefunden.</p>';
+    <span>${esc(m.display_name)}${m.hat_email ? "" : ' <span class="marke rot">keine E-Mail</span>'} ${mitgliedStand(m.person_id)}</span></label>`).join("") || '<p class="hinweis" style="padding:0 12px">Niemand gefunden.</p>';
   $("mChips").innerHTML = mGewaehlt.map((pid) => `<button class="chip" onclick="mWahl('${pid}', false)">${esc(person(pid)?.display_name || pid)} ✕</button>`).join("");
   $("gemeinsamKnopf").textContent = `Gemeinsam einladen${mGewaehlt.length > 1 ? ` (${mGewaehlt.length})` : ""}`;
   $("gemeinsamKnopf").disabled = mGewaehlt.length < 2 || mGewaehlt.length > 3;

@@ -1,9 +1,8 @@
 {
-  "version": "1.3.7",
-  "datum": "2026-09-27",
+  "version": "1.3.8",
+  "datum": "2026-09-28",
   "neu": [
-    "Für jede Einladung gibt es jetzt eine antippbare Chronologie pro Person bzw. Gruppe",
-    "Die Chronologie zeigt Einladung, Linköffnung, Terminwahl, Bestätigung, Änderungen und Absagen in zeitlicher Reihenfolge",
-    "Mail- und Push-Versand sowie gemeldete Zustell-, Öffnungs- und Anzeigeereignisse erscheinen ebenfalls im Ablauf"
+    "Beim Einladen steht hinter jedem Namen der Stand: eingeladen, Termin, geschult, abgesagt, keine Antwort …",
+    "Wer noch gar nicht eingeladen wurde, ist grau markiert"
   ]
 }
