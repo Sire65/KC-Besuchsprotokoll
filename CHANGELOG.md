@@ -7,6 +7,15 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.3.9 – 29.09.2026 (Server kc-termine geändert)
+- Fehler behoben (KC-BES-TERMINE): Nach einer Terminänderung wurde die neue Erinnerung vom KC Communicator als
+  Doppelversand verworfen, weil die Kennung `termin-erinnerung:<buchung>` gleich blieb; das Protokoll zeigte trotzdem
+  „Mail“. Fall: Manfred, Erinnerung 29.09. für Mi. 30.09. 15:00 nie verschickt (von Hand nachgesendet).
+  Jetzt: Kennung je Termin-Beginn (`termin-erinnerung:<buchung>:<beginn>`, ebenso Absage). Verwirft der Communicator
+  dennoch einen Doppelversand, steht im Verlauf „schon früher zugestellt – jetzt nicht erneut gesendet“.
+  Die Chronologie findet alte und neue Kennungen. Neuer statischer Test `tests/termine-kennung.test.mjs`.
+- Hochladen: über den Workflow „Termin-Programm hochladen“ im Repo KC-Clubapp (prüft zuerst den Test).
+
 ## 1.3.8 – 28.09.2026 (Server unverändert)
 - Feature KC-BES-STAND: In „Mitglieder einladen“ steht hinter jedem Namen der Stand, automatisch aus Einladungen, Buchungen und Besuchen:
   🎓 geschult (stattgefundener Besuch, mit Datum) · ✅ Termin TT.MM. · ⏳ gewählt – freigeben · 💬 Gegenvorschlag ·

@@ -142,7 +142,9 @@ async function senden(eventKey: string, personIds: string[], vars: Record<string
   return out.results.map((x: any) => {
     const ok = (k: string) => (x.attempts ?? []).some((a: any) => a.channel === k && ["sent", "deduplicated"].includes(a.result));
     const fehl = (x.attempts ?? []).filter((a: any) => !["sent", "deduplicated"].includes(a.result)).map((a: any) => `${a.channel}: ${a.reason || a.result}`);
-    return { name: x.displayName || x.personId, mail: ok("email"), push: ok("push"), hinweis: fehl.join(", ") || undefined };
+    // 1.3.9: ein vom Communicator verworfener Doppelversand ist KEIN neuer Versand – sichtbar machen statt still „Mail“
+    const doppelt = (x.attempts ?? []).filter((a: any) => a.result === "deduplicated").map((a: any) => `${a.channel}: schon früher zugestellt – jetzt nicht erneut gesendet`);
+    return { name: x.displayName || x.personId, mail: ok("email"), push: ok("push"), hinweis: [...fehl, ...doppelt].join(", ") || undefined };
   });
 }
 const MITGLIED_EREIGNISSE = ["termin_einladung", "termin_bestaetigung", "termin_info_mitglied"];
@@ -357,7 +359,7 @@ async function erinnerungen() {
     const v = await senden("termin_info_mitglied", leute.map((l) => l.person_id), {
       betreff: `Köcheclub Werne – Erinnerung: morgen, ${fZeit.format(new Date(b.slot.beginn))} Uhr`, text,
       titel: "Erinnerung", kurz: `Morgen ${fZeit.format(new Date(b.slot.beginn))} Uhr: Treffen mit Hansi (${artText(b.besuchsart, k)}).`,
-    }, `termin-erinnerung:${b.id}`, b.einladung.ist_test);
+    }, `termin-erinnerung:${b.id}:${b.slot.beginn}`, b.einladung.ist_test); // 1.3.9: je Termin-Beginn eindeutig
     await log("system", "erinnerung_gesendet", { einladung_id: b.einladung_id, slot_id: b.slot_id, buchung_id: b.id }, { versand: versandText(v) });
     n++;
   }
@@ -948,7 +950,7 @@ Deno.serve(async (req) => {
               String(p.nachricht || "").trim(), "", `Ich melde mich bei ${w.dir} wegen eines neuen Termins.`, "", "Viele Grüße", "Hansi", "Köcheclub Werne"]
               .filter((z, i, arr) => !(z === "" && arr[i - 1] === "")).join("\n"),
             titel: "Termin abgesagt", kurz: `Hansi muss den Termin ${wann(bestaetigt.slot.beginn, bestaetigt.slot.ende)} leider absagen.`,
-          }, `termin-absage:${bestaetigt.id}`, e.ist_test);
+          }, `termin-absage:${bestaetigt.id}:${bestaetigt.slot.beginn}`, e.ist_test); // 1.3.9: je Termin-Beginn eindeutig
           versand = versandText(v);
         }
         await log("hansi", "einladung_zurueckgezogen", { einladung_id: e.id }, { namen: namenKurz(leute), vorher: e.status, versand: versand || undefined });
