@@ -7,6 +7,13 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.3.10 – 05.10.2026 (Server kc-termine geändert, App unverändert)
+- KC-CLUB-SCHULUNG-MITGLIED: Die Köcheclub-App (ab 2.23.62) zeigt Mitgliedern mit Club-App ihre Termin-Einladung direkt in der App.
+  Dafür nimmt kc-termine die Mitglieder-Aktionen (m_laden, m_waehlen, m_gegenvorschlag, m_absagen, m_aendern) zusätzlich mit dem internen
+  Admin-Schlüssel (Vault kc_termine_admin_token) + einladung_id + person_id an – nur wenn die Person zur Einladung gehört. Der Mail-Link
+  (termin.html) bleibt unverändert gültig. „Link geöffnet“ zählt auch beim Öffnen in der Club-App (quelle club_app).
+- Die Bedienung für Hansi (Termine, Einladungen, Besuchsprotokoll) gibt es jetzt auch in der Köcheclub-App unter „🎓 Schulungen“.
+
 ## 1.3.9 – 29.09.2026 (Server kc-termine geändert)
 - Fehler behoben (KC-BES-TERMINE): Nach einer Terminänderung wurde die neue Erinnerung vom KC Communicator als
   Doppelversand verworfen, weil die Kennung `termin-erinnerung:<buchung>` gleich blieb; das Protokoll zeigte trotzdem

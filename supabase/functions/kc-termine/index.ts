@@ -649,17 +649,27 @@ Deno.serve(async (req) => {
 
     // ----- Mitglied (persönlicher Link) -----
     if (a.startsWith("m_")) {
-      const e = await einladungZuToken(p.t);
+      // KC-CLUB-SCHULUNG-MITGLIED (Club-App 2.23.62): die Club-App öffnet für ein angemeldetes Mitglied seine Einladung ohne Mail-Link –
+      // nur mit dem internen Admin-Schlüssel und nur, wenn die Person zur Einladung gehört. Der Mail-Link bleibt unverändert gültig.
+      const internKey = req.headers.get("x-kc-termine-admin-token") ?? "";
+      let e: any;
+      if (internKey && p.einladung_id && p.person_id) {
+        const { data: intern } = await db.rpc("kc_communication_get_server_secret", { p_name: "kc_termine_admin_token" });
+        if (!intern || internKey !== intern) return json({ error: "Kein Zugang" }, 401);
+        const { data } = await db.from("kc_termin_einladungen").select("*").eq("id", String(p.einladung_id)).maybeSingle();
+        if (!data || !(data.person_ids ?? []).includes(String(p.person_id))) throw new Fehler("Einladung nicht gefunden.", 404);
+        e = data;
+      } else e = await einladungZuToken(p.t);
       const leute = await personen(e.person_ids), wer = namenKurz(leute);
       const fristOffen = new Date(e.gueltig_bis) > new Date();
       switch (a) {
         case "m_laden": {
           // Nur die echte Mitgliederseite darf einen Link als geöffnet markieren.
           // Direkte API-/Technikprüfungen lesen den Stand, verändern aber geoeffnet_am nicht.
-          const echteSeite = p.client === "termin_html" && p.page_open === true;
+          const echteSeite = (p.client === "termin_html" || (p.client === "club_app" && internKey)) && p.page_open === true;
           if (echteSeite && !e.geoeffnet_am) {
             await db.from("kc_termin_einladungen").update({ geoeffnet_am: jetzt() }).eq("id", e.id);
-            await log("mitglied", "link_geoeffnet", { einladung_id: e.id }, { quelle: "termin_html" });
+            await log("mitglied", "link_geoeffnet", { einladung_id: e.id }, { quelle: p.client === "club_app" ? "club_app" : "termin_html" });
           }
           return json(await mitgliedStand(e));
         }
