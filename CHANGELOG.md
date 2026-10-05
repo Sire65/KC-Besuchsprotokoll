@@ -7,6 +7,12 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.3.11 – 2026-10-05 – Hinweise an Hansi (Köcheclub-App 2.23.68, Wunsch Hansi)
+- Erinnerung an Hansi per Push: am Vorabend ab 18 Uhr alle Termine von morgen in einer Nachricht, und 1 Stunde vor jedem bestätigten
+  Termin. Neues Ereignis termin_erinnerung_hansi (nur Push), je Buchung genau einmal (hansi_vorabend_am / hansi_vorher_am). Protokoll „hansi_erinnert“.
+- Links in Meldungen an Hansi, im Google-Kalender („Protokoll öffnen“, „Verwaltet in …“) führen jetzt in die Köcheclub-App (🎓 Schulungen).
+  Der Termin-Link der Mitglieder (termin.html) bleibt unverändert.
+
 ## 1.3.10 – 05.10.2026 (Server kc-termine geändert, App unverändert)
 - KC-CLUB-SCHULUNG-MITGLIED: Die Köcheclub-App (ab 2.23.62) zeigt Mitgliedern mit Club-App ihre Termin-Einladung direkt in der App.
   Dafür nimmt kc-termine die Mitglieder-Aktionen (m_laden, m_waehlen, m_gegenvorschlag, m_absagen, m_aendern) zusätzlich mit dem internen

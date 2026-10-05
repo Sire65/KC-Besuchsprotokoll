@@ -16,6 +16,9 @@ const ORG = "KC_WERNE";
 const TZ = "Europe/Berlin";
 const APP_SEITE = "https://sire65.github.io/KC-Besuchsprotokoll/";
 const MITGLIED_SEITE = APP_SEITE + "termin.html";
+// 1.3.11 (Club-App 2.23.68): Hansi verwaltet Termine und Besuche jetzt in der Köcheclub-App – Links an Hansi führen dorthin.
+// Der Mitglieder-Link (termin.html) bleibt unverändert.
+const CLUB_APP = "https://sire65.github.io/KC-Clubapp/";
 const FRIST_TAGE = 3;
 const ANHANG_BUCKET = "kc-communication-attachments";
 const AKTIV = ["vorgemerkt", "bestaetigt"];
@@ -153,8 +156,8 @@ const versandText = (v: Versand[]) => v.map((x) => `${x.name}: ${[x.mail && "Mai
 async function meldeHansi(betreff: string, text: string, kurz: string, test = false) {
   return senden("termin_meldung_hansi", [HANSI], {
     betreff: "KC Termine – " + betreff,
-    text: `Hallo Hansi,\n\n${text}\n\nZur App: ${APP_SEITE}#termine\n\nKC Besuchsprotokoll`,
-    titel: "KC Termine", kurz, url: APP_SEITE + "#termine",
+    text: `Hallo Hansi,\n\n${text}\n\nIn der Köcheclub-App (🎓 Schulungen): ${CLUB_APP}#schulungen\n\nKC Termine`,
+    titel: "KC Termine", kurz, url: CLUB_APP + "#schulungen",
   }, `termin-hansi:${crypto.randomUUID()}`, test);
 }
 
@@ -340,6 +343,40 @@ async function ablaufPruefen() {
   return data.length;
 }
 
+// 1.3.11 (Club-App 2.23.68, Wunsch Hansi): Erinnerung an Hansi – Vorabend ab 18 Uhr (alle Termine von morgen in einer Push)
+// und 1 Stunde vorher (je Termin). Nur Push (Ereignis termin_erinnerung_hansi), je Buchung genau einmal (Zeitstempel).
+async function hansiErinnerungen() {
+  const { data } = await db.from("kc_termin_buchungen").select("*, slot:kc_termin_slots(*), einladung:kc_termin_einladungen(person_ids,ist_test)")
+    .eq("status", "bestaetigt").or("hansi_vorabend_am.is.null,hansi_vorher_am.is.null");
+  const jetztMs = Date.now(), morgen = berlinTag(new Date(jetztMs + 86400000)), n = { vorabend: 0, vorher: 0 };
+  const echt = (data ?? []).filter((b: any) => b.slot?.status === "offen" && !b.einladung?.ist_test && new Date(b.slot.beginn).getTime() > jetztMs);
+  const zeile = async (b: any) => `${fZeit.format(new Date(b.slot.beginn))} Uhr ${namenKurz(await personen(b.einladung.person_ids))} (${artKurz(b.besuchsart)})`;
+  // Vorabend
+  if (berlinStunde(new Date(jetztMs)) >= 18) {
+    const m = echt.filter((b: any) => !b.hansi_vorabend_am && berlinTag(new Date(b.slot.beginn)) === morgen).sort((a: any, b: any) => String(a.slot.beginn).localeCompare(String(b.slot.beginn)));
+    const meine: any[] = [];
+    for (const b of m) { const { data: ok } = await db.from("kc_termin_buchungen").update({ hansi_vorabend_am: jetzt() }).eq("id", b.id).is("hansi_vorabend_am", null).select("id"); if (ok?.length) meine.push(b); }
+    if (meine.length) {
+      const zeilen = await Promise.all(meine.map(zeile));
+      const v = await senden("termin_erinnerung_hansi", [HANSI], { titel: "🎓 Morgen Schulung", kurz: `Morgen: ${zeilen.join(" · ")}`.slice(0, 180),
+        betreff: "KC Termine – morgen", text: `Morgen:\n${zeilen.map((z) => "• " + z).join("\n")}`, url: CLUB_APP + "#schulungen" }, `hansi-vorabend:${morgen}:${meine.map((b) => b.id).join(",")}`);
+      await log("system", "hansi_erinnert", {}, { anlass: "vorabend", namen: zeilen.join(" · "), versand: versandText(v) });
+      n.vorabend = meine.length;
+    }
+  }
+  // 1 Stunde vorher
+  for (const b of echt.filter((x: any) => !x.hansi_vorher_am && new Date(x.slot.beginn).getTime() - jetztMs <= 3600000)) {
+    const { data: ok } = await db.from("kc_termin_buchungen").update({ hansi_vorher_am: jetzt() }).eq("id", b.id).is("hansi_vorher_am", null).select("id");
+    if (!ok?.length) continue;
+    const z = await zeile(b), min = Math.max(5, Math.round((new Date(b.slot.beginn).getTime() - jetztMs) / 60000));
+    const v = await senden("termin_erinnerung_hansi", [HANSI], { titel: `🎓 In ${min >= 55 ? "1 Std." : min + " Min."}: Schulung`, kurz: z.slice(0, 180),
+      betreff: "KC Termine – gleich", text: `Gleich: ${z}`, url: CLUB_APP + "#schulungen" }, `hansi-vorher:${b.id}:${b.slot.beginn}`);
+    await log("system", "hansi_erinnert", { einladung_id: b.einladung_id, slot_id: b.slot_id, buchung_id: b.id }, { anlass: "vorher", namen: z, versand: versandText(v) });
+    n.vorher++;
+  }
+  return n;
+}
+
 async function erinnerungen() {
   const morgen = berlinTag(new Date(Date.now() + 86400000));
   if (berlinStunde(new Date()) < 9) return 0;
@@ -396,9 +433,9 @@ async function kalenderEintraege() {
     const beschreibung = [
       `Status: ${titel.replace(/^\S+\s/, "")}`, `Ort: ${artKurz(art)}`,
       s.status !== "abgesagt" ? `Plätze: ${s.belegt} von ${s.plaetze} belegt${frei > 0 && !s.hat_hausbesuch ? ` (${frei} frei)` : ""}` : "",
-      ...bs.map((b: any) => `• ${namenKurz(leuteVon(b.einladung.person_ids))} – ${b.status === "bestaetigt" ? "gebucht" : "vorgemerkt, wartet auf Freigabe"}${b.besuch_id ? `\n  Protokoll öffnen: ${APP_SEITE}#besuch=${b.besuch_id}` : ""}`),
+      ...bs.map((b: any) => `• ${namenKurz(leuteVon(b.einladung.person_ids))} – ${b.status === "bestaetigt" ? "gebucht" : "vorgemerkt, wartet auf Freigabe"}${b.besuch_id ? `\n  Protokoll öffnen: ${CLUB_APP}#besuch=${b.besuch_id}` : ""}`),
       s.notiz ? `Notiz: ${s.notiz}` : "", s.herkunft === "gegenvorschlag" ? "Aus einem Gegenvorschlag des Mitglieds." : s.herkunft === "direkt" ? "Mündlich abgesprochen." : "",
-    ].filter(Boolean).join("\n") + `\n\nVerwaltet im KC Besuchsprotokoll: ${APP_SEITE}#termine`;
+    ].filter(Boolean).join("\n") + `\n\nVerwaltet in der Köcheclub-App (🎓 Schulungen): ${CLUB_APP}#schulungen`;
     eintraege.push({ uid: `slot-${s.id}`, titel, beginn: s.beginn, ende: s.ende, ort, beschreibung, farbe, geloescht: false });
   }
   for (const v of vor ?? []) {
@@ -407,7 +444,7 @@ async function kalenderEintraege() {
     eintraege.push({
       uid: `vorschlag-${v.id}`, titel: `💬 Vorschlag von ${namenKurz(leute)} – bitte entscheiden`, beginn: v.beginn, ende: v.ende,
       ort: v.besuchsart === "bei_hansi" ? `bei mir (${hOrt})` : v.besuchsart === "beim_mitglied" ? adresse(leute[0]) : "",
-      beschreibung: `Gegenvorschlag von ${namenKurz(leute)} (${artKurz(v.besuchsart)}).${v.einladung.bemerkung ? "\nBemerkung: " + v.einladung.bemerkung : ""}\n\nIn der App annehmen oder neue Termine anbieten: ${APP_SEITE}#termine`,
+      beschreibung: `Gegenvorschlag von ${namenKurz(leute)} (${artKurz(v.besuchsart)}).${v.einladung.bemerkung ? "\nBemerkung: " + v.einladung.bemerkung : ""}\n\nIn der Köcheclub-App annehmen oder neue Termine anbieten: ${CLUB_APP}#schulungen`,
       farbe: "vorschlag", geloescht: false,
     });
   }
@@ -623,7 +660,7 @@ Deno.serve(async (req) => {
     if (a === "wartung") {
       const { data: geheim } = await db.rpc("kc_communication_get_server_secret", { p_name: "kc_termine_cron_secret" });
       if (!geheim || p.cronSecret !== geheim) return json({ error: "Kein Zugang" }, 401);
-      return json({ ok: true, abgelaufen: await ablaufPruefen(), erinnerungen: await erinnerungen() });
+      return json({ ok: true, abgelaufen: await ablaufPruefen(), erinnerungen: await erinnerungen(), hansi: await hansiErinnerungen().catch((e) => ({ fehler: String(e) })) });
     }
 
     // ----- Google-Skript -----
