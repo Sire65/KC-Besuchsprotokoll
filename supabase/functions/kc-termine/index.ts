@@ -192,6 +192,12 @@ function verfuegbar(s: any, n: number) {
     !(s.besuchsart === "beim_mitglied" && s.buchungen > 0);
 }
 const artEffektiv = (s: any) => (s.besuchsart === "wahl" && s.buchungen > 0 ? "bei_hansi" : s.besuchsart);
+// 1.3.12 (Club-App 2.23.69, Wunsch Hansi): Hansi kann beim Einladen festlegen, welche freien Termine das Mitglied sieht (slot_ids).
+// Leer/null = alle freien Termine wie bisher. „Erneut einladen“ und „Neue Termine anbieten“ zeigen wieder alle.
+async function freieFuer(e: any, n: number) {
+  const frei = await freieTermine(n, e.ist_test);
+  return Array.isArray(e.slot_ids) && e.slot_ids.length ? frei.filter((s) => e.slot_ids.includes(s.id)) : frei;
+}
 async function freieTermine(n: number, test: boolean) {
   const { data } = await db.from("kc_termin_slot_stand").select("*").eq("status", "offen").eq("ist_test", test)
     .gt("beginn", jetzt()).order("beginn");
@@ -251,7 +257,7 @@ async function besuchEntfernen(besuchId: string | null) {
 // ---------- Mails an Mitglieder ----------
 async function einladungSenden(e: any, leute: Person[], link: string, gueltig: string, anlass: "neu" | "erneut" | "neue_termine" | "abgelehnt" | "ausfall", extra = "") {
   const n = leute.length, w = sprache(n);
-  const frei = await freieTermine(n, e.ist_test);
+  const frei = await freieFuer(e, n);
   const liste = frei.length
     ? frei.slice(0, 12).map((s) => `• ${wann(s.beginn, s.ende)} – ${artText(s.besuchsart, n)}`).join("\n")
     : "(Gerade ist kein Termin frei – über den Link " + (n > 1 ? "könnt ihr" : "kannst du") + " mir eigene Vorschläge schicken.)";
@@ -640,7 +646,7 @@ async function mitgliedStand(e: any) {
   return {
     namen: leute.map(vorname), anzahl: leute.length, status, gueltig_bis: e.gueltig_bis,
     frist_offen: new Date(e.gueltig_bis) > new Date(),
-    frei: status === "offen" ? await freieTermine(leute.length, e.ist_test) : [],
+    frei: status === "offen" ? await freieFuer(e, leute.length) : [],
     buchung: b ? { beginn: b.slot.beginn, ende: b.slot.ende, besuchsart: b.besuchsart, status: b.status,
       ort: b.status === "bestaetigt" ? await ortFuer(b.besuchsart, leute) : null } : null,
     vorschlaege: v ?? [], bemerkung: e.bemerkung || "",
@@ -711,6 +717,7 @@ Deno.serve(async (req) => {
           return json(await mitgliedStand(e));
         }
         case "m_waehlen": {
+          if (Array.isArray(e.slot_ids) && e.slot_ids.length && !e.slot_ids.includes(String(p.slot_id || ""))) throw new Fehler("Dieser Termin ist nicht mehr verfügbar. Bitte wähle einen anderen.");
           const { data: r, error } = await db.rpc("kc_termin_waehlen", { p_einladung: e.id, p_slot: String(p.slot_id || ""), p_art: String(p.besuchsart || "") });
           if (error) throw new Fehler(error.message, 500);
           if (!r?.ok) {
@@ -864,6 +871,11 @@ Deno.serve(async (req) => {
         if (gruppen.some((g) => g.length > 3)) throw new Fehler("Höchstens 3 Personen pro Termin.");
         const { data: aktiv } = await db.from("kc_termin_einladungen").select("person_ids").in("status", ["offen", "gewaehlt", "gegenvorschlag"]).gt("gueltig_bis", jetzt());
         const belegt = new Set((aktiv ?? []).flatMap((e: any) => e.person_ids));
+        // nur gültige, gerade freie Termine übernehmen; leer = alle
+        const angebot = Array.isArray(p.slot_ids) ? [...new Set(p.slot_ids.map(String))].slice(0, 30) : [];
+        const { data: gueltigeSlots } = angebot.length ? await db.from("kc_termin_slots").select("id").in("id", angebot).eq("status", "offen").gt("beginn", jetzt()) : { data: [] as any[] };
+        const slotIds = (gueltigeSlots ?? []).map((x: any) => x.id);
+        if (angebot.length && !slotIds.length) throw new Fehler("Die ausgewählten Termine sind nicht mehr frei – bitte neu auswählen.");
         const ergebnisse = [];
         for (const g of gruppen) {
           const leute = await personen(g);
@@ -873,7 +885,7 @@ Deno.serve(async (req) => {
           const token = zufall(), gueltig = inTagen(FRIST_TAGE);
           const { data: e, error } = await db.from("kc_termin_einladungen").insert({
             person_ids: g, token_hash: await sha256(token), gueltig_bis: gueltig,
-            nachricht: String(p.nachricht || "").trim().slice(0, 1000) || null, ist_test: p.test === true,
+            nachricht: String(p.nachricht || "").trim().slice(0, 1000) || null, ist_test: p.test === true, slot_ids: slotIds.length ? slotIds : null,
           }).select().single();
           if (error) { ergebnisse.push({ namen: namenKurz(leute), fehler: error.message }); continue; }
           const link = `${MITGLIED_SEITE}?t=${token}`;
@@ -942,6 +954,7 @@ Deno.serve(async (req) => {
         if (p.aktion === "neue_termine") {
           await db.from("kc_termin_vorschlaege").update({ status: "abgelehnt" }).eq("einladung_id", e.id).eq("status", "offen");
           const { link, gueltig } = await neuOeffnen(e.id);
+          await db.from("kc_termin_einladungen").update({ slot_ids: null }).eq("id", e.id); e.slot_ids = null; // wieder alle freien Termine
           const v = await einladungSenden(e, leute, link, gueltig, "neue_termine", String(p.nachricht || "").trim().slice(0, 500));
           await log("hansi", "neue_termine_angeboten", { einladung_id: e.id }, { namen: namenKurz(leute), versand: versandText(v), neue_frist: gueltig });
           return json({ ok: true, versand: v, link });
@@ -955,7 +968,8 @@ Deno.serve(async (req) => {
         if (!["offen", "abgelaufen", "abgesagt"].includes(e.status)) throw new Fehler("Diese Einladung ist gerade nicht offen.");
         const leute = await personen(e.person_ids);
         const { link, gueltig } = await neuOeffnen(e.id);
-        const v = await einladungSenden({ ...e, nachricht: String(p.nachricht || "").trim() || null }, leute, link, gueltig, "erneut", String(p.nachricht || "").trim().slice(0, 500));
+        await db.from("kc_termin_einladungen").update({ slot_ids: null }).eq("id", e.id); // wieder alle freien Termine
+        const v = await einladungSenden({ ...e, slot_ids: null, nachricht: String(p.nachricht || "").trim() || null }, leute, link, gueltig, "erneut", String(p.nachricht || "").trim().slice(0, 500));
         await db.from("kc_termin_einladungen").update({ gesendet_am: jetzt() }).eq("id", e.id);
         await log("hansi", "erneut_eingeladen", { einladung_id: e.id }, { namen: namenKurz(leute), versand: versandText(v), neue_frist: gueltig });
         return json({ ok: true, versand: v, link });
@@ -1026,7 +1040,8 @@ Deno.serve(async (req) => {
             if ((count ?? 0) > 1) throw new Fehler("Zu diesem Termin kommen noch andere Mitglieder – bitte Uhrzeit/Ort im Reiter „Termine“ ändern (Termin absagen und neu anbieten).");
           }
           ({ data: slot } = await db.from("kc_termin_slots").update({ beginn: beginn.toISOString(), ende: ende.toISOString(), besuchsart: art, geaendert_am: jetzt() }).eq("id", alt.slot_id).select().single());
-          ({ data: buchung } = await db.from("kc_termin_buchungen").update({ besuchsart: art }).eq("id", alt.id).select().single());
+          // 1.3.12: neue Zeit → Erinnerungen (Mitglied + Hansi) für den neuen Termin wieder offen
+          ({ data: buchung } = await db.from("kc_termin_buchungen").update({ besuchsart: art, ...(geaendert ? { erinnerung_gesendet_am: null, hansi_vorabend_am: null, hansi_vorher_am: null } : {}) }).eq("id", alt.id).select().single());
           einl = alt.einladung; aktion = geaendert ? "termin_geaendert" : "termin_unveraendert";
           if (!p.senden) {
             if (geaendert) await log("hansi", aktion, { einladung_id: einl.id, slot_id: slot.id, buchung_id: buchung.id }, { namen: namenKurz(leute), wann: wann(slot.beginn, slot.ende) });

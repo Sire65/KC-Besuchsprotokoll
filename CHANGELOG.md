@@ -7,6 +7,12 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.3.12 – 2026-10-05 – Termine gezielt anbieten, Verschieben (Köcheclub-App 2.23.69, Wunsch Hansi)
+- Einladung mit Terminauswahl: t_einladen nimmt slot_ids (nur gültige, freie Termine); Mail und Mitgliederseite zeigen dann nur diese,
+  m_waehlen lässt nur diese zu. Leer = alle freien Termine wie bisher. „Erneut einladen“ und „Neue Termine anbieten“ zeigen wieder alle.
+- Termin verschoben (t_besuch_termin mit neuer Zeit): Erinnerung ans Mitglied und an Hansi werden für die neue Zeit wieder fällig.
+- Migration: kc_termin_einladungen.slot_ids (uuid[], leer = alle).
+
 ## 1.3.11 – 2026-10-05 – Hinweise an Hansi (Köcheclub-App 2.23.68, Wunsch Hansi)
 - Erinnerung an Hansi per Push: am Vorabend ab 18 Uhr alle Termine von morgen in einer Nachricht, und 1 Stunde vor jedem bestätigten
   Termin. Neues Ereignis termin_erinnerung_hansi (nur Push), je Buchung genau einmal (hansi_vorabend_am / hansi_vorher_am). Protokoll „hansi_erinnert“.
