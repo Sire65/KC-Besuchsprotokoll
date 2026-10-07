@@ -1,3 +1,5 @@
+> **Umgezogen (07.10.2026):** Dieser Text und das Termin-Programm liegen jetzt im Repo KC-Clubapp (`docs/TERMINE.md`). Hier nur noch Historie.
+
 # Feature KC-BES-TERMINE – Terminkalender (ab Version 1.2.0)
 
 ## Ablauf

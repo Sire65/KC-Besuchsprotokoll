@@ -1,8 +1,7 @@
 {
-  "version": "1.3.9",
-  "datum": "2026-09-29",
+  "version": "1.4.0",
+  "datum": "2026-10-07",
   "neu": [
-    "Erinnerungen kommen jetzt auch nach einer Terminänderung zuverlässig an",
-    "Im Verlauf steht, wenn eine Mail nicht erneut verschickt wurde, weil sie schon früher zugestellt war"
+    "Umgezogen: Termine und Besuche gibt es jetzt in der Köcheclub-App unter „🎓 Schulungen“"
   ]
 }

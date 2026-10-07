@@ -7,6 +7,15 @@ Neue Version herausgeben (alle drei Stellen gleich setzen):
 Dann hier eintragen, committen, Tag `vx.y.z` setzen und pushen.
 Beim nächsten Start (oder Zurückwechseln zur App) meldet das Handy „Neue Version“ mit Knopf „Jetzt aktualisieren“.
 
+## 1.4.0 – 2026-10-07 – Stillgelegt, alles in der Köcheclub-App (KC-TERMINE-UMZUG, Köcheclub-App 2.28.0)
+- Das eigene Termin-/Besuchsprogramm wird nicht mehr benutzt. Hansi bedient Termine, Einladungen und Besuchsprotokolle in der
+  Köcheclub-App unter „🎓 Schulungen“.
+- Quellcode der Edge Function `kc-termine`, die Mitgliederseite `termin.html`, das Google-Skript und `docs/TERMINE.md` liegen jetzt im
+  Repo KC-Clubapp (eine Quelle). Hochgeladen wird von dort (Workflow „Termin-Programm hochladen“).
+- `index.html` zeigt nur noch einen Hinweis mit Knopf zur Köcheclub-App; `termin.html` leitet alte Mail-Links mit demselben
+  Schlüssel auf `KC-Clubapp/termin.html` weiter; `sw.js` löscht den alten Speicher und meldet sich ab.
+- Die Dateien unter `supabase/` bleiben hier nur als Historie (nicht mehr hochladen). Rückweg: Stand 1.3.12 (Commit 5855f15).
+
 ## 1.3.12 – 2026-10-05 – Termine gezielt anbieten, Verschieben (Köcheclub-App 2.23.69, Wunsch Hansi)
 - Einladung mit Terminauswahl: t_einladen nimmt slot_ids (nur gültige, freie Termine); Mail und Mitgliederseite zeigen dann nur diese,
   m_waehlen lässt nur diese zu. Leer = alle freien Termine wie bisher. „Erneut einladen“ und „Neue Termine anbieten“ zeigen wieder alle.
